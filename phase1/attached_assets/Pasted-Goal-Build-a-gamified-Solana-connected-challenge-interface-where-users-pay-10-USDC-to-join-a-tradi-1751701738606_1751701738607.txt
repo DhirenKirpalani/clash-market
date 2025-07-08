@@ -1,0 +1,117 @@
+Goal:
+Build a gamified, Solana-connected challenge interface where users pay 10 USDC to join a trading competition using their existing Drift account. No in-app trading. Everything is off-platform, with leaderboard tracked via %PnL.
+
+Sections to Build:
+1. Lobby (Hero Section)
+Purpose: Set the theme, give the countdown, push CTA.
+
+Headline: "Enter the Arena of Alpha"
+
+Subheading: "Stake your skills. Trade to the top. Win the pot."
+
+Countdown Timer: Live, until July 6, 10:00 AM UTC
+
+Mini Stats (live or mocked):
+
+Players Joined: 23
+
+Pool: 230 USDC
+
+Starts: July 6, 10:00 AM UTC
+
+Visual Style: Dark-mode, glowing UI, fantasy/RPG tone
+
+CTA Button: Join the Challenge → scrolls to registration
+
+2. Join Challenge Section
+Connect Wallet button (Phantom/Backpack)
+
+Input Username (validate uniqueness)
+
+Select Challenge (only “Weekend Warriors” for now)
+
+Pay Entry Fee: 10 USDC via SPL transfer
+
+On success: emit PlayerRegistered, show success state
+
+Prevent:
+
+Duplicate usernames (per challenge)
+
+Multiple entries from same wallet
+
+Registration after challenge starts
+
+3. Rules & Rewards
+Design this as a card-based or timeline visual:
+
+Challenge time: July 6, 10AM–6PM UTC
+
+Allowed markets: SOL-PERP, ETH-PERP, BTC-PERP
+
+Winning Metric: %PnL = ((Equity - 100) / 100) * 100
+
+Disqualifiers:
+
+Liquidation
+
+Trading unauthorized pairs
+
+Margin deposits during challenge
+
+Wallet mismatch
+
+Prize Structure: Winner-take-all or 70/20/10
+
+Platform Fee: 5–10%
+
+Funds: Held in escrow
+
+Use icons (💀, 🏆, 🧠) and animations if possible.
+
+4. Leaderboard
+Live or static table:
+
+🏅 Rank	Username	Wallet (Masked)	%PnL	Status
+🥇 1	TraderX	0x12...Ae	+42%	🟢
+💀	Liquidated status shows with icon			
+⚠️	Disqualified = red row			
+
+5. Waitlist / Notify Me
+If registration is not open or closed:
+
+Show “Summon your spot” headline
+
+Connect wallet
+
+Optional: enter Discord username
+
+Button: Notify Me
+
+Toast: “You’re on the list!”
+
+Wallet Connect Flow
+Use @solana/wallet-adapter-react
+
+Show wallet address once connected
+
+Store wallet in state
+
+Block registration actions unless connected
+
+Style & UX Guidelines
+Solana-themed neon palette (turquoise, purple, black)
+
+Gamified font + icons
+
+Hover effects on CTAs
+
+Entry animation on page load
+
+Sound effects (optional)
+
+Glowing border buttons
+
+Use Framer Motion or Tailwind transitions
+
+do not create a server folder first, create the client folder first
