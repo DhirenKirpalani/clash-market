@@ -40,9 +40,14 @@ export function HeroSection() {
       <FloatingCoins />
       
       <div className="relative z-10 text-center max-w-6xl mx-auto px-4 animate-slide-in">
-        <h1 className="font-orbitron font-black text-5xl md:text-7xl lg:text-8xl mb-6 gradient-text-primary animate-glow-pulse">
-          ENTER THE ARENA OF ALPHA
-        </h1>
+        {/* Replace text heading with logo */}
+        <div className="flex justify-center mb-6 mt-8 md:mt-12">
+          <img 
+            src="/images/Logo.png" 
+            alt="Clash Market Logo" 
+            className="h-48 md:h-64 lg:h-80 mix-blend-screen" 
+          />
+        </div>
         <p className="text-xl md:text-2xl mb-8 text-gray-300 font-inter">
           Stake your skills. Trade to the top. Win the pot.
         </p>

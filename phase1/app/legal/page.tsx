@@ -14,15 +14,11 @@ export default function Legal() {
       {/* Hero Section */}
       <section className="pt-24 md:pt-16 pb-16 px-4">
         <div className="max-w-6xl mx-auto text-center">
-          <div className="flex items-center justify-center space-x-3 mb-6">
-            <Image src="/images/Logo.png" alt="Liqify Logo" width={48} height={48} />
-            <span className="font-bungee text-3xl text-electric-purple">LIQIFY</span>
-          </div>
           <h1 className="font-orbitron font-black text-4xl md:text-6xl mb-6 gradient-text-primary">
             Legal & Compliance
           </h1>
           <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-            Important legal information, terms of service, and privacy policies for LIQIFY users.
+            Important legal information, terms of service, and privacy policies for CLASH MARKET users.
           </p>
         </div>
       </section>
@@ -38,7 +34,7 @@ export default function Legal() {
               <div className="space-y-4 text-gray-300">
                 <h3 className="text-lg font-semibold text-white">1. Acceptance of Terms</h3>
                 <p>
-                  By accessing and using LIQIFY, you accept and agree to be bound by the terms and provision of this agreement.
+                  By accessing and using CLASH MARKET, you accept and agree to be bound by the terms and provision of this agreement.
                 </p>
                 
                 <h3 className="text-lg font-semibold text-white">2. Trading Competitions</h3>
@@ -134,7 +130,7 @@ export default function Legal() {
             <h2 className="text-2xl font-bold gradient-text-primary mb-6">Disclaimer</h2>
             <div className="space-y-4 text-gray-300">
               <p>
-                LIQIFY is a gaming platform that simulates trading competitions. It is not a licensed 
+                CLASH MARKET is a gaming platform that simulates trading competitions. It is not a licensed 
                 financial advisor, broker, or investment service. The platform is provided "as is" 
                 without warranties of any kind.
               </p>
@@ -146,7 +142,7 @@ export default function Legal() {
               </p>
               
               <p>
-                LIQIFY operates on the Solana blockchain and is subject to the inherent risks and 
+                CLASH MARKET operates on the Solana blockchain and is subject to the inherent risks and 
                 limitations of blockchain technology. Users participate at their own risk.
               </p>
             </div>
@@ -159,9 +155,9 @@ export default function Legal() {
               For legal inquiries, compliance questions, or support issues:
             </p>
             <div className="space-y-2 text-electric-purple">
-              <p>Email: legal@liqify.io</p>
-              <p>Support: support@liqify.io</p>
-              <p>Discord: discord.gg/liqify</p>
+              <p>Email: legal@clashmarket.io</p>
+              <p>Support: support@clashmarket.io</p>
+              <p>Discord: discord.gg/clashmarket</p>
             </div>
             <p className="text-sm text-gray-500 mt-6">
               Last updated: July 2025

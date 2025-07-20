@@ -3,13 +3,13 @@
 import React from 'react';
 import { Home, User, Bell, Gamepad2 } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
-import { useWallet } from './wallet-provider';
+import { useSupabaseWallet } from '@/hooks/useSupabaseWallet';
 import { useNotifications } from './notification-modal';
 import { useAdminStatus } from '../hooks/useAdminStatus';
 import { useSplashScreen } from './splash-screen';
 
 export function MobileNavigation() {
-  const { connected, connect } = useWallet();
+  const { connected, connect, user } = useSupabaseWallet();
   const { unreadCount } = useNotifications();
   const router = useRouter();
   const pathname = usePathname();
@@ -22,7 +22,7 @@ export function MobileNavigation() {
   // Set from localStorage after mount
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('activeLiqifySection');
+      const saved = localStorage.getItem('activeClashMarketSection');
       if (saved) setActiveSection(saved);
     }
   }, []);
@@ -30,7 +30,7 @@ export function MobileNavigation() {
   const scrollToSection = (sectionId: string) => {
     // Save active section to localStorage for persistence
     if (typeof window !== 'undefined') {
-      localStorage.setItem('activeLiqifySection', sectionId);
+      localStorage.setItem('activeClashMarketSection', sectionId);
     }
     
     // Update active section state
@@ -77,7 +77,7 @@ export function MobileNavigation() {
   const goToProfile = () => {
     // Save active section to localStorage for persistence
     if (typeof window !== 'undefined') {
-      localStorage.setItem('activeLiqifySection', 'profile');
+      localStorage.setItem('activeClashMarketSection', 'profile');
     }
     
     // Update active section state
@@ -91,7 +91,7 @@ export function MobileNavigation() {
   const goToGames = () => {
     // Save active section to localStorage for persistence
     if (typeof window !== 'undefined') {
-      localStorage.setItem('activeLiqifySection', 'games');
+      localStorage.setItem('activeClashMarketSection', 'games');
     }
     
     // Update active section state

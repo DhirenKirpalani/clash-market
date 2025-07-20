@@ -2,25 +2,27 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
-import { useWallet } from './wallet-provider';
+import { useSupabaseWallet } from '@/hooks/useSupabaseWallet';
 import { useNotifications } from './notification-modal';
 import { useAdminStatus } from '../hooks/useAdminStatus';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
-import { Bell, CheckCircle, AlertTriangle, Info, User, ShieldCheck } from 'lucide-react';
+import { Bell, CheckCircle, AlertTriangle, Info, User, ShieldCheck, Wallet } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
-import Image from 'next/image';
 import { useSplashScreen } from './splash-screen';
 
 export function Navigation() {
-  const { connected, connecting, publicKey, connect, disconnect } = useWallet();
+  const { connected, connecting, loading, publicKey, user, connect, disconnect } = useSupabaseWallet();
   const { notifications, clearNotifications, unreadCount } = useNotifications();
   const [notificationOpen, setNotificationOpen] = React.useState(false);
   const { isVisible: splashVisible } = useSplashScreen();
   const { isAdmin } = useAdminStatus();
   const router = useRouter();
   const pathname = usePathname();
+  const [username, setUsername] = React.useState('');
+  const [profilePicture, setProfilePicture] = React.useState('');
   
   // Initialize with a default value to avoid hydration mismatch
   const [activeSection, setActiveSection] = React.useState('lobby');
@@ -28,12 +30,63 @@ export function Navigation() {
   // Load from localStorage after mount
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('activeLiqifySection');
+      const saved = localStorage.getItem('activeClashMarketSection');
       if (saved) {
         setActiveSection(saved);
       }
     }
   }, []);
+  
+  // Load username from Supabase or localStorage when wallet is connected
+  React.useEffect(() => {
+    if (connected && publicKey) {
+      if (user && user.username) {
+        // Prioritize username from Supabase
+        setUsername(user.username);
+      } else {
+        // Fallback to localStorage
+        const savedUsername = localStorage.getItem(`username-${publicKey}`);
+        if (savedUsername) {
+          setUsername(savedUsername);
+        }
+      }
+      
+      // Load profile picture from localStorage
+      const savedProfilePicture = localStorage.getItem(`profilePicture-${publicKey}`);
+      if (savedProfilePicture) {
+        setProfilePicture(savedProfilePicture);
+      }
+    } else {
+      setUsername('');
+      setProfilePicture('');
+    }
+    
+    // Listen for username update events from profile page
+    const handleUsernameUpdate = (event: CustomEvent) => {
+      const { publicKey: eventPublicKey, username: newUsername } = event.detail;
+      if (connected && publicKey && eventPublicKey === publicKey) {
+        setUsername(newUsername);
+      }
+    };
+    
+    // Listen for profile picture update events from profile page
+    const handleProfilePictureUpdate = (event: CustomEvent) => {
+      const { publicKey: eventPublicKey, profilePicture: newProfilePicture } = event.detail;
+      if (connected && publicKey && eventPublicKey === publicKey) {
+        setProfilePicture(newProfilePicture);
+      }
+    };
+    
+    // Add event listeners for updates
+    window.addEventListener('usernameUpdated', handleUsernameUpdate as EventListener);
+    window.addEventListener('profilePictureUpdated', handleProfilePictureUpdate as EventListener);
+    
+    // Clean up event listeners on unmount
+    return () => {
+      window.removeEventListener('usernameUpdated', handleUsernameUpdate as EventListener);
+      window.removeEventListener('profilePictureUpdated', handleProfilePictureUpdate as EventListener);
+    };
+  }, [connected, publicKey, user]);
   
   // Dispatch custom event when notification dialog state changes
   const handleNotificationOpenChange = (open: boolean) => {
@@ -50,7 +103,7 @@ export function Navigation() {
   const scrollToSection = (sectionId: string) => {
     // Save to localStorage
     if (typeof window !== 'undefined') {
-      localStorage.setItem('activeLiqifySection', sectionId);
+      localStorage.setItem('activeClashMarketSection', sectionId);
     }
     
     // Update active section state
@@ -71,21 +124,27 @@ export function Navigation() {
 
   return (
     <nav className="fixed top-0 w-full bg-dark-bg/90 backdrop-blur-md border-b border-dark-border z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+      <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-10">
+        <div className="flex items-center justify-between h-20">
           <button 
             onClick={() => scrollToSection('lobby')} 
             className="flex items-center space-x-3 cursor-pointer hover:opacity-90 transition-opacity"
           >
-            <Image src="/images/Logo.png" alt="Liqify Logo" width={32} height={32} />
-            <span className="font-bungee text-xl text-electric-purple">LIQIFY</span>
+            <Image src="/images/Logo.png" alt="Clash Market Logo" width={60} height={60} />
+            {/* <span className="font-bungee text-xl text-electric-purple">CLASH MARKET</span> */}
           </button>
           <div className="hidden md:flex items-center space-x-8">
             <button 
               onClick={() => scrollToSection('lobby')}
-              className={`transition-colors ${activeSection === 'lobby' ? 'text-electric-purple' : 'hover:text-electric-purple'}`}
+              className={`transition-colors ${activeSection === 'lobby' && pathname === '/' ? 'text-electric-purple' : 'hover:text-electric-purple'}`}
             >
               Arena
+            </button>
+            <button 
+              onClick={() => scrollToSection('game-modes')}
+              className={`transition-colors ${activeSection === 'game-modes' ? 'text-warning-orange' : 'hover:text-warning-orange'}`}
+            >
+              Games
             </button>
             <button 
               onClick={() => scrollToSection('rules')}
@@ -198,9 +257,19 @@ export function Navigation() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="hover:bg-dark-card/50 transition-colors p-2 group"
+                className={`transition-colors p-2 group ${pathname.startsWith('/profile') ? 'bg-dark-card/50' : 'hover:bg-dark-card/50'}`}
               >
-                <User className="h-7 w-7 text-gray-400 transition-colors group-hover:text-electric-purple" />
+                <div className="h-7 w-7 flex items-center justify-center overflow-hidden rounded-full">
+                  {profilePicture && connected ? (
+                    <img 
+                      src={profilePicture} 
+                      alt="Profile" 
+                      className={`w-full h-full object-cover rounded-full transition-colors ring-1 ${pathname.startsWith('/profile') ? 'ring-electric-purple' : 'ring-electric-purple/30 group-hover:ring-electric-purple'}`} 
+                    />
+                  ) : (
+                    <User className={`h-7 w-7 transition-colors ${pathname.startsWith('/profile') ? 'text-electric-purple' : 'text-gray-400 group-hover:text-electric-purple'}`} />
+                  )}
+                </div>
               </Button>
             </Link>
             
@@ -219,10 +288,40 @@ export function Navigation() {
             
             <Button
               onClick={connected ? disconnect : connect}
-              disabled={connecting}
-              className="gaming-button px-4 py-2 rounded-lg font-semibold"
+              disabled={connecting || loading}
+              className={`gaming-button ${connected ? 'px-4 py-2 bg-gradient-to-r from-electric-purple to-cyber-blue hover:from-cyber-blue hover:to-electric-purple' : 'px-4 py-2'} rounded-lg font-semibold transition-all duration-300 hover:shadow-glow-sm`}
             >
-              {connecting ? 'Connecting...' : connected ? `${publicKey?.slice(0, 6)}...${publicKey?.slice(-4)}` : 'Connect Wallet'}
+              {(connecting || loading) ? (
+                <>
+                  <span className="mr-2 inline-block animate-spin">⟳</span>
+                  Connecting...
+                </>
+              ) : connected ? (
+                <div className="flex items-center">
+                  <div className="w-6 h-6 rounded-full bg-dark-bg/40 flex items-center justify-center mr-2 ring-1 ring-electric-purple/30 overflow-hidden">
+                    <Image 
+                      src="/images/Phantom_SVG_Icon.svg" 
+                      alt="Phantom Wallet" 
+                      width={16} 
+                      height={16} 
+                    />
+                  </div>
+                  <span className="mr-1">{username || publicKey?.slice(0, 6) + '...'}</span>
+                  <span className="text-xs bg-neon-cyan/20 text-neon-cyan py-0.5 px-1.5 rounded-md">Online</span>
+                </div>
+              ) : (
+                <div className="flex items-center">
+                  <div className="mr-2">
+                    <Image 
+                      src="/images/Phantom_SVG_Icon.svg" 
+                      alt="Phantom Wallet" 
+                      width={16} 
+                      height={16} 
+                    />
+                  </div>
+                  Connect Wallet
+                </div>
+              )}
             </Button>
           </div>
         </div>

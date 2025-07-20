@@ -1,23 +1,35 @@
 import { NextResponse } from 'next/server';
-
-// These would ideally be stored in environment variables or a database
-const ADMIN_WALLETS = [
-  "8ZUn9G36BMSRojNW7wtneL5YEQBKzz4hTzWqRwUYJ9Jj", // Replace with your actual admin wallet
-  "6Ks9G8fyo5RwTGrpYPTnNGVXwkMEWtR8AEKvf7Yc1cuz", // Another admin wallet
-  // Add other admin wallets here
-];
+import { supabase } from '@/lib/supabase';
 
 export async function POST(request: Request) {
   try {
     const { wallet } = await request.json();
     
+    console.log('Admin API: Checking wallet address:', wallet);
+    
     if (!wallet) {
+      console.log('Admin API: No wallet provided');
       return NextResponse.json({ isAdmin: false }, { status: 400 });
     }
     
-    const isAdmin = ADMIN_WALLETS.includes(wallet);
+    // Query the database to check if the user with this wallet is an admin
+    const { data, error } = await supabase
+      .from('users')
+      .select('is_admin')
+      .eq('wallet_address', wallet)
+      .single();
+    
+    if (error) {
+      console.error('Admin API: Database error:', error);
+      return NextResponse.json({ isAdmin: false, error: 'Database error' }, { status: 500 });
+    }
+    
+    const isAdmin = data?.is_admin === true;
+    console.log('Admin API: Is admin?', isAdmin, 'DB result:', data);
+    
     return NextResponse.json({ isAdmin });
   } catch (error) {
-    return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+    console.error('Admin API: Error processing request:', error);
+    return NextResponse.json({ isAdmin: false, error: 'Invalid request' }, { status: 400 });
   }
 }

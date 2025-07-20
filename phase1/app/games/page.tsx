@@ -72,7 +72,7 @@ export default function GamesPage() {
       
       <div className="pt-24 pb-20 max-w-6xl mx-auto px-4">
         <h1 className="text-4xl md:text-5xl font-orbitron font-bold text-center mb-12 gradient-text-primary">
-          Liqify Arena
+          Clash Market Arena
         </h1>
 
       <Tabs defaultValue="pvp" className="w-full">
@@ -230,7 +230,7 @@ export default function GamesPage() {
                       type="number"
                       value={principalAmount}
                       onChange={(e) => setPrincipalAmount(e.target.value)}
-                      className="bg-dark-bg border-dark-border"
+                      className="bg-dark-bg border-dark-border text-white"
                       placeholder="Initial stake amount"
                     />
                     <div className="text-sm text-muted-foreground">{selectedToken}</div>
@@ -245,7 +245,7 @@ export default function GamesPage() {
                       type="number"
                       value={potAmount}
                       onChange={(e) => setPotAmount(e.target.value)}
-                      className="bg-dark-bg border-dark-border"
+                      className="bg-dark-bg border-dark-border text-white"
                       placeholder="Winner takes all amount"
                     />
                     <div className="text-sm text-muted-foreground">{selectedToken}</div>
@@ -288,7 +288,7 @@ export default function GamesPage() {
               </CardContent>
               <CardFooter>
                 <Button className="w-full bg-cyber-blue hover:bg-cyber-blue/80">
-                  Create Game (10 USDC Entry Fee Per Player)
+                  Create Game
                 </Button>
               </CardFooter>
             </Card>
@@ -357,7 +357,7 @@ export default function GamesPage() {
                     placeholder="Enter code (e.g. AB12CD)"
                     value={joinCode}
                     onChange={(e) => setJoinCode(e.target.value)}
-                    className="font-mono uppercase bg-dark-bg border-dark-border"
+                    className="font-mono uppercase bg-dark-bg border-dark-border text-white"
                   />
                 </div>
               </CardContent>
@@ -366,7 +366,7 @@ export default function GamesPage() {
                   className="w-full bg-electric-purple hover:bg-electric-purple/80"
                   disabled={joinCode.length < 6}
                 >
-                  Join Game (10 USDC Entry Fee)
+                  Join Game
                 </Button>
               </CardFooter>
             </Card>

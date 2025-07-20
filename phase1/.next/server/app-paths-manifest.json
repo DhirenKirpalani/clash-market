@@ -1,8 +1,7 @@
 {
-  "/api/check-admin/route": "app/api/check-admin/route.js",
   "/page": "app/page.js",
   "/profile/page": "app/profile/page.js",
-  "/games/page": "app/games/page.js",
-  "/admin/page": "app/admin/page.js",
-  "/admin/tournaments/page": "app/admin/tournaments/page.js"
+  "/api/check-admin/route": "app/api/check-admin/route.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/admin/page": "app/admin/page.js"
 }

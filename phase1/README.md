@@ -1,8 +1,8 @@
-# LIQIFY - Solana Trading Competition Platform
+# CLASH MARKET - Solana Trading Competition Platform
 
 ## Overview
 
-LIQIFY is a gamified Solana-connected trading competition platform where users stake 10 USDC to join trading challenges. The application features a dark-themed, RPG-inspired interface for competitive trading experiences using existing Drift accounts. The platform is built as a full-stack web application with a React frontend and Express backend, utilizing PostgreSQL for data persistence.
+CLASH MARKET is a gamified Solana-connected trading competition platform where users stake 10 USDC to join trading challenges. The application features a dark-themed, RPG-inspired interface for competitive trading experiences using existing Drift accounts. The platform is built as a full-stack web application with a React frontend and Express backend, utilizing PostgreSQL for data persistence.
 
 ## System Architecture
 

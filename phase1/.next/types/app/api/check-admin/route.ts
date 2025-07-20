@@ -1,4 +1,4 @@
-// File: C:\Users\Dhiren Kirpalani\OneDrive\Documents\Liqify-App\liqify\phase1\app\api\check-admin\route.ts
+// File: C:\Users\Dhiren Kirpalani\OneDrive\Documents\Clash-Market\clash-market\phase1\app\api\check-admin\route.ts
 import * as entry from '../../../../../app/api/check-admin/route.js'
 import type { NextRequest } from 'next/server.js'
 

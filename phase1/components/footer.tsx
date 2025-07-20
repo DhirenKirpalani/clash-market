@@ -12,8 +12,8 @@ export function Footer() {
         <div className="grid md:grid-cols-4 gap-8">
           <div>
             <div className="flex items-center space-x-3 mb-4">
-              <Image src="/images/Logo.png" alt="Liqify Logo" width={32} height={32} />
-              <span className="font-bungee text-xl text-electric-purple">LIQIFY</span>
+              <Image src="/images/Logo.png" alt="Clash Market Logo" width={70} height={70} />
+              {/* <span className="font-bungee text-xl text-electric-purple">CLASH MARKET</span> */}
             </div>
             <p className="text-sm text-gray-400">
               The ultimate arena for crypto traders. Compete, conquer, collect.
@@ -59,7 +59,7 @@ export function Footer() {
               <span className="sr-only">Telegram</span>
             </a>
           </div>
-          © 2025 Liqify. Built on Solana. Trade responsibly.
+          © 2025 Clash Market. Built on Solana. Trade responsibly.
         </div>
       </div>
     </footer>

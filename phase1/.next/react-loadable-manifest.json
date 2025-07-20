@@ -1,16 +1,4 @@
 {
-  "app\\games\\page.tsx -> @/components/mobile-navigation": {
-    "id": "app\\games\\page.tsx -> @/components/mobile-navigation",
-    "files": [
-      "static/chunks/_app-pages-browser_components_mobile-navigation_tsx-_afd21.js"
-    ]
-  },
-  "app\\games\\page.tsx -> @/components/navigation": {
-    "id": "app\\games\\page.tsx -> @/components/navigation",
-    "files": [
-      "static/chunks/_app-pages-browser_components_navigation_tsx-_0f7c1.js"
-    ]
-  },
   "app\\page.tsx -> @/components/floating-coins": {
     "id": "app\\page.tsx -> @/components/floating-coins",
     "files": [
@@ -44,13 +32,13 @@
   "app\\page.tsx -> @/components/mobile-navigation": {
     "id": "app\\page.tsx -> @/components/mobile-navigation",
     "files": [
-      "static/chunks/_app-pages-browser_components_mobile-navigation_tsx-_afd20.js"
+      "static/chunks/_app-pages-browser_components_mobile-navigation_tsx.js"
     ]
   },
   "app\\page.tsx -> @/components/navigation": {
     "id": "app\\page.tsx -> @/components/navigation",
     "files": [
-      "static/chunks/_app-pages-browser_components_navigation_tsx-_0f7c0.js"
+      "static/chunks/_app-pages-browser_components_navigation_tsx.js"
     ]
   },
   "app\\page.tsx -> @/components/rules-rewards": {
@@ -73,14 +61,28 @@
   },
   "app\\providers.tsx -> @/components/splash-screen": {
     "id": "app\\providers.tsx -> @/components/splash-screen",
-    "files": [
-      "static/chunks/_app-pages-browser_components_splash-screen_tsx.js"
-    ]
+    "files": []
   },
   "app\\providers.tsx -> @/components/wallet-provider": {
     "id": "app\\providers.tsx -> @/components/wallet-provider",
     "files": [
       "static/chunks/_app-pages-browser_components_wallet-provider_tsx.js"
     ]
+  },
+  "node_modules\\@supabase\\auth-js\\dist\\module\\lib\\helpers.js -> @supabase/node-fetch": {
+    "id": "node_modules\\@supabase\\auth-js\\dist\\module\\lib\\helpers.js -> @supabase/node-fetch",
+    "files": []
+  },
+  "node_modules\\@supabase\\functions-js\\dist\\module\\helper.js -> @supabase/node-fetch": {
+    "id": "node_modules\\@supabase\\functions-js\\dist\\module\\helper.js -> @supabase/node-fetch",
+    "files": []
+  },
+  "node_modules\\@supabase\\realtime-js\\dist\\module\\RealtimeClient.js -> @supabase/node-fetch": {
+    "id": "node_modules\\@supabase\\realtime-js\\dist\\module\\RealtimeClient.js -> @supabase/node-fetch",
+    "files": []
+  },
+  "node_modules\\@supabase\\storage-js\\dist\\module\\lib\\helpers.js -> @supabase/node-fetch": {
+    "id": "node_modules\\@supabase\\storage-js\\dist\\module\\lib\\helpers.js -> @supabase/node-fetch",
+    "files": []
   }
 }

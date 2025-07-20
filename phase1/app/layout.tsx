@@ -3,7 +3,7 @@ import "../styles/globals.css";
 import { Providers } from './providers';
 
 export const metadata: Metadata = {
-  title: 'Liqify - PvP Perps Trading App',
+  title: 'Clash Market - PvP Perps Trading App',
   description: 'Decentralized PvP trading application',
   viewport: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover',
   icons: {

@@ -14,12 +14,8 @@ export default function About() {
       {/* Hero Section */}
       <section className="pt-24 md:pt-16 pb-16 px-4">
         <div className="max-w-6xl mx-auto text-center">
-          <div className="flex items-center justify-center space-x-3 mb-6">
-            <Image src="/images/Logo.png" alt="Liqify Logo" width={48} height={48} />
-            <span className="font-bungee text-3xl text-electric-purple">LIQIFY</span>
-          </div>
           <h1 className="font-orbitron font-black text-4xl md:text-6xl mb-6 gradient-text-primary">
-            About LIQIFY
+            About CLASH MARKET
           </h1>
           <p className="text-xl text-gray-300 max-w-3xl mx-auto">
             The premier gaming platform for competitive crypto trading on Solana. 
@@ -81,7 +77,7 @@ export default function About() {
           <h2 className="text-3xl font-bold gradient-text-primary mb-8 text-center">Our Story</h2>
           <div className="space-y-6 text-gray-300 text-lg leading-relaxed">
             <p>
-              LIQIFY was born from the vision of creating a fairer, more accessible way for traders 
+              CLASH MARKET was born from the vision of creating a fairer, more accessible way for traders 
               to compete and improve their skills. Traditional trading competitions often favor 
               those with the largest capital, but we believe skill should be the deciding factor.
             </p>
@@ -92,7 +88,7 @@ export default function About() {
               financial education component that helps traders grow.
             </p>
             <p>
-              Built on Solana blockchain, LIQIFY offers transparency, security, and speed 
+              Built on Solana blockchain, CLASH MARKET offers transparency, security, and speed 
               that traditional platforms cannot match. Every transaction, every trade, 
               and every competition result is verifiable on-chain.
             </p>

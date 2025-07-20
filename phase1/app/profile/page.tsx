@@ -3,20 +3,27 @@
 import React, { useState, useEffect } from 'react';
 import { Navigation } from '@/components/navigation';
 import { MobileNavigation } from '@/components/mobile-navigation';
-import { useWallet } from '@/components/wallet-provider';
+import { useSupabaseWallet } from '@/hooks/useSupabaseWallet';
+import { updateUserProfile, updateUserProfileByWallet } from '@/lib/auth';
+import { useToast } from '@/hooks/use-toast';
+import { Toaster } from '@/components/ui/toaster';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { User, Wallet, Trophy, TrendingUp, Calendar, Shield, Edit2, Copy, Check } from 'lucide-react';
+import { generateUsername } from '../../utils/generateUsername';
 import Image from 'next/image';
 
 export default function Profile() {
-  const { connected, publicKey, connect } = useWallet();
+  const { connected, publicKey, connect, user } = useSupabaseWallet();
+  const { toast } = useToast();
   const [isMobile, setIsMobile] = useState(false);
   const [username, setUsername] = useState('');
   const [isEditingUsername, setIsEditingUsername] = useState(false);
   const [copiedToClipboard, setCopiedToClipboard] = useState(false);
+  const [profilePicture, setProfilePicture] = useState('');
+  const [isEditingProfilePicture, setIsEditingProfilePicture] = useState(false);
   
   useEffect(() => {
     // Check if window is defined (browser environment)
@@ -37,18 +44,198 @@ export default function Profile() {
   }, []);
   
   useEffect(() => {
-    // Load username from localStorage when wallet is connected
+    // Load username from Supabase user or localStorage when wallet is connected
     if (connected && publicKey) {
-      const savedUsername = localStorage.getItem(`username-${publicKey}`);
-      if (savedUsername) {
-        setUsername(savedUsername);
+      let usernameFound = false;
+      
+      if (user && user.username) {
+        // Prioritize username from Supabase
+        console.log('Using username from Supabase:', user.username);
+        setUsername(user.username);
+        usernameFound = true;
+      } else {
+        // Fallback to localStorage
+        const savedUsername = localStorage.getItem(`username-${publicKey}`);
+        if (savedUsername) {
+          console.log('Using username from localStorage:', savedUsername);
+          setUsername(savedUsername);
+          usernameFound = true;
+        }
+      }
+      
+      // Generate random username if no username was found
+      if (!usernameFound) {
+        const randomUsername = generateUsername(publicKey);
+        console.log('Generated random username:', randomUsername);
+        setUsername(randomUsername);
+        
+        // Save to localStorage
+        localStorage.setItem(`username-${publicKey}`, randomUsername);
+        
+        // Save to Supabase
+        if (publicKey) {
+          try {
+            updateUserProfileByWallet(publicKey, { username: randomUsername });
+            console.log('Random username saved to Supabase');
+          } catch (error) {
+            console.error('Error saving random username to Supabase:', error);
+          }
+        }
+      }
+      
+      // Load profile picture from localStorage
+      const savedProfilePicture = localStorage.getItem(`profilePicture-${publicKey}`);
+      if (savedProfilePicture) {
+        console.log('Loading profile picture from localStorage');
+        setProfilePicture(savedProfilePicture);
       }
     }
-  }, [connected, publicKey]);
+  }, [connected, publicKey, user]);
   
-  const saveUsername = () => {
-    if (connected && publicKey && username.trim()) {
-      localStorage.setItem(`username-${publicKey}`, username.trim());
+  
+  const handleProfilePictureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !publicKey) return;
+    
+    // Check file type and size
+    if (!file.type.startsWith('image/')) {
+      alert('Please upload an image file');
+      return;
+    }
+    
+    if (file.size > 1024 * 1024 * 2) { // 2MB limit
+      alert('Image size should be less than 2MB');
+      return;
+    }
+    
+    // Convert to base64
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      if (base64 && publicKey) {
+        // Save to localStorage
+        localStorage.setItem(`profilePicture-${publicKey}`, base64);
+        setProfilePicture(base64);
+        
+        // Dispatch custom event for real-time updates in navbar
+        const profilePictureEvent = new CustomEvent('profilePictureUpdated', {
+          detail: {
+            publicKey: publicKey,
+            profilePicture: base64
+          }
+        });
+        window.dispatchEvent(profilePictureEvent);
+      }
+    };
+    reader.readAsDataURL(file);
+    setIsEditingProfilePicture(false);
+  };
+  
+  const handleRemoveProfilePicture = () => {
+    if (!publicKey) return;
+    
+    // Remove from localStorage
+    localStorage.removeItem(`profilePicture-${publicKey}`);
+    setProfilePicture('');
+    
+    // Dispatch custom event for real-time updates in navbar
+    const profilePictureEvent = new CustomEvent('profilePictureUpdated', {
+      detail: {
+        publicKey: publicKey,
+        profilePicture: ''
+      }
+    });
+    window.dispatchEvent(profilePictureEvent);
+    
+    setIsEditingProfilePicture(false);
+  };
+
+  const saveUsername = async () => {
+    if (connected && publicKey) {
+      let finalUsername = username.trim();
+      
+      // Generate random username if field is empty
+      if (!finalUsername) {
+        finalUsername = generateUsername(publicKey);
+        setUsername(finalUsername);
+        
+        toast({
+          title: "Username Reset",
+          description: "Empty username detected. A new random username has been generated.",
+          variant: "default",
+        });
+      }
+      
+      // Save to localStorage for immediate UI update
+      localStorage.setItem(`username-${publicKey}`, finalUsername);
+      
+      // Dispatch custom event for real-time updates in other components
+      const usernameUpdateEvent = new CustomEvent('usernameUpdated', {
+        detail: {
+          publicKey: publicKey,
+          username: finalUsername
+        }
+      });
+      window.dispatchEvent(usernameUpdateEvent);
+      
+      // Save to Supabase
+      if (publicKey) {
+        try {
+          console.log('Updating username in Supabase by wallet address:', finalUsername);
+          // Try updating by wallet address instead of user ID
+          await updateUserProfileByWallet(publicKey, { username: finalUsername });
+          console.log('Username updated successfully by wallet address');
+          
+          // Show success toast
+          toast({
+            title: "Username Updated",
+            description: "Your username has been saved to the database.",
+            variant: "default",
+          });
+        } catch (error) {
+          console.error('Error updating username in Supabase:', error);
+          
+          // Try the original method as fallback
+          if (user && user.id) {
+            try {
+              console.log('Trying fallback: Update by user ID');
+              await updateUserProfile(user.id, { username: finalUsername });
+              console.log('Username updated successfully by user ID');
+              
+              toast({
+                title: "Username Updated",
+                description: "Your username has been saved to the database.",
+                variant: "default",
+              });
+            } catch (fallbackError) {
+              console.error('Fallback update also failed:', fallbackError);
+              
+              toast({
+                title: "Update Failed",
+                description: "Could not save your username to the database.",
+                variant: "destructive",
+              });
+            }
+          } else {
+            // Show error toast if both methods fail
+            toast({
+              title: "Update Failed",
+              description: "Could not save your username to the database.",
+              variant: "destructive",
+            });
+          }
+        }
+      } else {
+        console.error('Cannot update username: User not found in Supabase');
+        
+        // Show error toast for missing user
+        toast({
+          title: "Update Failed",
+          description: "User record not found in database. Try reconnecting your wallet.",
+          variant: "destructive",
+        });
+      }
+      
       setIsEditingUsername(false);
     }
   };
@@ -63,26 +250,43 @@ export default function Profile() {
 
   if (!connected) {
     return (
-      <div className="min-h-screen bg-dark-bg text-white overflow-x-hidden pb-16 md:pb-0">
+      <div className="min-h-screen bg-dark-bg text-white bg-[url('/images/bg-grid.png')] bg-fixed">
+        <div className="absolute inset-0 bg-gradient-to-b from-electric-purple/10 to-cyber-blue/5 pointer-events-none"></div>
         <Navigation />
-        
-        <section className="pt-24 md:pt-16 pb-16 px-4">
-          <div className="max-w-4xl mx-auto text-center">
-            <div className="flex items-center justify-center space-x-3 mb-6">
-              <Image src="/images/Logo.png" alt="Liqify Logo" width={48} height={48} />
-              <span className="font-bungee text-3xl text-electric-purple">PROFILE</span>
+
+        <section className="max-w-6xl mx-auto px-4 sm:px-6 py-12 mt-24 relative z-10">
+          {/* Decorative elements */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-electric-purple/10 rounded-full filter blur-3xl -z-10 animate-pulse"></div>
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-cyber-blue/10 rounded-full filter blur-3xl -z-10 animate-pulse"></div>
+          
+          {/* If wallet not connected */}
+          {!connected ? (
+            <div className="flex flex-col items-center justify-center py-16 backdrop-blur-sm bg-dark-bg/30 rounded-xl border border-dark-border/40 gaming-card shadow-glow transition-all duration-500">
+              <div className="rounded-full bg-dark-card/80 p-8 mb-8 ring-4 ring-electric-purple/20 shadow-glow-sm">
+                <User className="w-16 h-16 text-electric-purple animate-pulse" />
+              </div>
+              <h1 className="text-3xl font-orbitron font-bold mb-4 gradient-text-primary">Profile Locked</h1>
+              <p className="text-gray-300 mb-8 text-center max-w-md text-lg">
+                Connect your wallet to unlock your gaming profile, track your battle history, and claim your rewards.
+              </p>
+              <Button onClick={connect} className="gaming-button px-8 py-4 text-lg shadow-glow-sm transition-all duration-300 hover:scale-105 hover:shadow-glow">
+                <Wallet className="mr-2 h-5 w-5" /> Connect Wallet
+              </Button>
             </div>
-            <h1 className="font-orbitron font-black text-4xl md:text-6xl mb-6 gradient-text-primary">
-              Connect Your Wallet
-            </h1>
-            <p className="text-xl text-gray-300 max-w-2xl mx-auto mb-8">
-              Connect your Solana wallet to view your trading profile, performance history, and competition statistics.
-            </p>
-            <Button onClick={connect} className="gaming-button px-8 py-3 text-lg">
-              <Wallet className="mr-2 h-5 w-5" />
-              Connect Wallet
-            </Button>
-          </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 backdrop-blur-sm bg-dark-bg/30 rounded-xl border border-dark-border/40 gaming-card shadow-glow transition-all duration-500">
+              <div className="rounded-full bg-dark-card/80 p-8 mb-8 ring-4 ring-electric-purple/20 shadow-glow-sm">
+                <User className="w-16 h-16 text-electric-purple animate-pulse" />
+              </div>
+              <h1 className="text-3xl font-orbitron font-bold mb-4 gradient-text-primary">Profile Locked</h1>
+              <p className="text-gray-300 mb-8 text-center max-w-md text-lg">
+                Connect your wallet to unlock your gaming profile, track your battle history, and claim your rewards.
+              </p>
+              <Button onClick={connect} className="gaming-button px-8 py-4 text-lg shadow-glow-sm transition-all duration-300 hover:scale-105 hover:shadow-glow">
+                <Wallet className="mr-2 h-5 w-5" /> Connect Wallet
+              </Button>
+            </div>
+          )}
         </section>
 
         <MobileNavigation />
@@ -91,37 +295,74 @@ export default function Profile() {
   }
 
   return (
-    <div className="min-h-screen bg-dark-bg text-white overflow-x-hidden pb-16 md:pb-0">
+    <div className="min-h-screen bg-dark-bg text-white bg-[url('/images/bg-grid.png')] bg-fixed">
+      <div className="absolute inset-0 bg-gradient-to-b from-electric-purple/10 to-cyber-blue/5 pointer-events-none"></div>
       <Navigation />
       
+      {/* Decorative elements */}
+      <div className="fixed top-40 right-10 w-80 h-80 bg-electric-purple/5 rounded-full filter blur-3xl -z-10 animate-pulse"></div>
+      <div className="fixed bottom-20 left-10 w-80 h-80 bg-cyber-blue/5 rounded-full filter blur-3xl -z-10 animate-pulse"></div>
+      
       {/* Profile Header */}
-      <section className="pt-24 md:pt-16 pb-8 px-4">
+      <section className="pt-24 md:pt-16 pb-8 px-4 relative z-10">
         <div className="max-w-6xl mx-auto">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center sm:space-x-4 mb-8">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-electric-purple to-cyber-blue flex items-center justify-center mb-4 sm:mb-0">
-              <User className="h-10 w-10 text-white" />
+          <div className="flex flex-col sm:flex-row items-start sm:items-center sm:space-x-6 mb-8 gaming-card p-6 rounded-xl backdrop-blur-sm bg-dark-bg/40 border border-dark-border/40 shadow-glow-sm transition-all duration-300 hover:shadow-glow">
+            <div className="relative group w-24 h-24 mb-4 sm:mb-0">
+              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-electric-purple to-cyber-blue flex items-center justify-center ring-4 ring-white/10 shadow-glow-sm transform hover:scale-105 transition-all duration-300 overflow-hidden">
+                {profilePicture ? (
+                  <img src={profilePicture} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  <User className="h-12 w-12 text-white" />
+                )}
+              </div>
+              
+              {/* Edit overlay */}
+              <div className="absolute inset-0 rounded-full bg-black/70 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                <input 
+                  type="file" 
+                  id="profile-picture-input" 
+                  accept="image/*"
+                  className="hidden" 
+                  onChange={handleProfilePictureUpload}
+                />
+                <label 
+                  htmlFor="profile-picture-input"
+                  className="cursor-pointer text-xs text-white bg-electric-purple/60 hover:bg-electric-purple px-2 py-1 rounded mb-1 w-16 text-center"
+                >
+                  Upload
+                </label>
+                {profilePicture && (
+                  <button 
+                    onClick={handleRemoveProfilePicture}
+                    className="cursor-pointer text-xs text-white bg-red-500/60 hover:bg-red-500 px-2 py-1 rounded w-16 text-center"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
             </div>
             <div className="max-w-full">
               {isEditingUsername ? (
-                <div className="flex items-center mb-2 gap-2">
+                <div className="flex items-center mb-2 gap-2 animate-fadeIn">
                   <Input 
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder="Enter your username"
-                    className="w-60 bg-dark-bg/50 border-cyber-blue/30 text-white"
-                    autoFocus
+                    className="max-w-xs bg-dark-bg/80 border-cyber-blue/30 focus:border-cyber-blue focus:ring-2 focus:ring-cyber-blue/20 transition-all duration-300"
                   />
                   <Button 
-                    onClick={saveUsername}
-                    className="bg-cyber-blue hover:bg-cyber-blue/80"
-                    size="sm"
+                    onClick={() => {
+                      saveUsername();
+                      setIsEditingUsername(false);
+                    }}
+                    className="text-white bg-cyber-blue hover:bg-cyber-blue/80 hover:scale-105 transition-all duration-300 shadow-glow-sm"
                   >
-                    Save
+                    <Check className="h-4 w-4 mr-1" /> Save
                   </Button>
                   <Button 
                     onClick={() => setIsEditingUsername(false)}
-                    variant="ghost" 
-                    size="sm"
+                    variant="outline"
+                    className="border-dark-border text-gray-400 hover:bg-dark-card/50 transition-all duration-300"
                   >
                     Cancel
                   </Button>
@@ -283,6 +524,7 @@ export default function Profile() {
       </section>
 
       <MobileNavigation />
+      <Toaster />
     </div>
   );
 }

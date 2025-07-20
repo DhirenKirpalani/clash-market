@@ -1,4 +1,4 @@
-// File: C:\Users\Dhiren Kirpalani\OneDrive\Documents\Liqify-App\liqify\phase1\app\admin\page.tsx
+// File: C:\Users\Dhiren Kirpalani\OneDrive\Documents\Clash-Market\clash-market\phase1\app\admin\page.tsx
 import * as entry from '../../../../app/admin/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 
