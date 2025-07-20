@@ -1,4 +1,16 @@
 {
+  "app\\games\\page.tsx -> @/components/mobile-navigation": {
+    "id": "app\\games\\page.tsx -> @/components/mobile-navigation",
+    "files": [
+      "static/chunks/_app-pages-browser_components_mobile-navigation_tsx-_afd21.js"
+    ]
+  },
+  "app\\games\\page.tsx -> @/components/navigation": {
+    "id": "app\\games\\page.tsx -> @/components/navigation",
+    "files": [
+      "static/chunks/_app-pages-browser_components_navigation_tsx-_0f7c1.js"
+    ]
+  },
   "app\\page.tsx -> @/components/floating-coins": {
     "id": "app\\page.tsx -> @/components/floating-coins",
     "files": [
@@ -32,13 +44,13 @@
   "app\\page.tsx -> @/components/mobile-navigation": {
     "id": "app\\page.tsx -> @/components/mobile-navigation",
     "files": [
-      "static/chunks/_app-pages-browser_components_mobile-navigation_tsx.js"
+      "static/chunks/_app-pages-browser_components_mobile-navigation_tsx-_afd20.js"
     ]
   },
   "app\\page.tsx -> @/components/navigation": {
     "id": "app\\page.tsx -> @/components/navigation",
     "files": [
-      "static/chunks/_app-pages-browser_components_navigation_tsx.js"
+      "static/chunks/_app-pages-browser_components_navigation_tsx-_0f7c0.js"
     ]
   },
   "app\\page.tsx -> @/components/rules-rewards": {

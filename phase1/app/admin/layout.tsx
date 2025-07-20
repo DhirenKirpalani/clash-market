@@ -5,6 +5,7 @@ import { AdminCheck } from '@/components/AdminCheck';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Menu, X } from 'lucide-react';
+import { Toaster } from '@/components/ui/toaster';
 
 export default function AdminLayout({
   children,
@@ -48,9 +49,9 @@ export default function AdminLayout({
         >
           <div className="p-5 border-b border-dark-border">
             <Link href="/admin" className="flex items-center gap-2">
-              <Image src="/images/Logo.png" alt="Liqify Logo" width={28} height={28} />
+              <Image src="/images/Logo.png" alt="Clash Market Logo" width={28} height={28} />
               <h1 className="text-xl font-bungee text-electric-purple">
-                LIQIFY
+                CLASH MARKET
               </h1>
             </Link>
             <div className="pl-1 mt-2">
@@ -119,6 +120,7 @@ export default function AdminLayout({
           </div>
         </div>
       </div>
+      <Toaster />
     </AdminCheck>
   );
 }

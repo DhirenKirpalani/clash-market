@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from "react";
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { Clock, Lock, Trophy, Plus, Users, RefreshCw } from 'lucide-react';
+import { Clock, Lock, Trophy, Plus, Users, RefreshCw, Calendar } from 'lucide-react';
+import { getTournaments } from '@/lib/tournaments';
 import { Footer } from '@/components/footer';
 import { TournamentResults } from '@/components/tournament-results';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -49,6 +50,9 @@ export default function GamesPage() {
   const [principalAmount, setPrincipalAmount] = useState('');
   const [duration, setDuration] = useState('30');
   const [gameCode, setGameCode] = useState('');
+  const [tournaments, setTournaments] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
   // Generate a random game code when private mode is enabled
   useEffect(() => {
@@ -59,6 +63,25 @@ export default function GamesPage() {
       setGameCode('');
     }
   }, [isPrivate]);
+  
+  // Fetch tournaments from Supabase
+  useEffect(() => {
+    const fetchTournaments = async () => {
+      try {
+        setIsLoading(true);
+        const tournamentsData = await getTournaments();
+        setTournaments(tournamentsData);
+        setError('');
+      } catch (err) {
+        console.error('Error fetching tournaments:', err);
+        setError('Failed to load tournaments. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchTournaments();
+  }, []);
 
   const getPnLColor = (pnl: number) => {
     if (pnl > 0) return 'text-neon-cyan';
@@ -87,6 +110,68 @@ export default function GamesPage() {
         
         {/* Tournament Tab Content */}
         <TabsContent value="tournament" className="space-y-8">
+          {/* Tournaments List */}
+          <Card className="gaming-card glow-border rounded-xl overflow-hidden hover:shadow-neon-purple transition-all duration-300">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-xl text-electric-purple font-orbitron">Active Tournaments</CardTitle>
+              <CardDescription>Join a tournament and compete for prizes</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {isLoading ? (
+                <div className="text-center py-8">
+                  <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
+                  <p className="text-gray-400">Loading tournaments...</p>
+                </div>
+              ) : error ? (
+                <div className="text-center py-8 text-red-400">
+                  <p>{error}</p>
+                  <Button 
+                    onClick={() => getTournaments().then(setTournaments).catch(console.error)}
+                    variant="outline" 
+                    className="mt-2"
+                  >
+                    Try Again
+                  </Button>
+                </div>
+              ) : tournaments.length === 0 ? (
+                <div className="text-center py-8 text-gray-400">
+                  <Trophy className="h-12 w-12 mx-auto mb-2 opacity-30" />
+                  <p>No active tournaments at the moment.</p>
+                  <p className="text-sm mt-1">Check back soon for new competitions!</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {tournaments
+                    .filter(tournament => tournament.status !== 'completed')
+                    .map((tournament) => (
+                    <div key={tournament.id} className="p-3 border border-dark-border rounded-md bg-dark-bg/70 hover:bg-dark-bg transition-all">
+                      <div className="flex flex-wrap md:flex-nowrap justify-between items-center">
+                        <span className="font-medium text-base">{tournament.name}</span>
+                        <span className="text-sm text-gray-400 w-full md:w-auto mt-1 md:mt-0 flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {new Date(tournament.start_date).toLocaleDateString()} - {new Date(tournament.end_date).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center mt-2 text-sm">
+                        <span className="text-cyber-blue flex items-center">
+                          <Users className="h-3 w-3 mr-1" />
+                          {tournament.is_private && <Lock className="h-3 w-3 mr-1" />}
+                          {tournament.max_participants} max participants
+                        </span>
+                        <span className="text-neon-cyan">{tournament.prize_pool} USDC pool</span>
+                      </div>
+                      <div className="mt-3 flex justify-end">
+                        <Button size="sm" className="bg-electric-purple hover:bg-electric-purple/80">
+                          Register
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Tournament Registration */}
             <Card className="gaming-card glow-border rounded-xl overflow-hidden hover:shadow-neon-purple transition-all duration-300">

@@ -82,26 +82,93 @@ export async function createTournament(tournamentData: {
   end_date: string;
   prize_pool: number;
   status: 'upcoming' | 'active' | 'completed';
+  entry_fee?: number;
+  max_participants?: number;
+  registration_open?: boolean;
+  is_private?: boolean;
 }) {
-  const { data, error } = await supabase
-    .from('tournaments')
-    .insert(tournamentData)
-    .select();
-    
-  if (error) throw error;
-  return data;
+  // Get the wallet address from localStorage
+  const wallet = typeof window !== 'undefined' ? localStorage.getItem('walletAddress') : null;
+  
+  // Use the admin API route to bypass RLS
+  const response = await fetch('/api/admin/tournaments', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      tournamentData,
+      wallet,
+    }),
+  });
+  
+  const result = await response.json();
+  
+  if (!response.ok) {
+    throw new Error(result.error || 'Failed to create tournament');
+  }
+  
+  return result.data;
 }
 
-// Update tournament status (admin only)
-export async function updateTournamentStatus(tournamentId: string, status: 'upcoming' | 'active' | 'completed') {
-  const { data, error } = await supabase
-    .from('tournaments')
-    .update({ status })
-    .eq('id', tournamentId)
-    .select();
-    
-  if (error) throw error;
-  return data;
+// Delete tournament (admin only)
+export async function deleteTournament(tournamentId: string) {
+  // Get the wallet address from localStorage
+  const wallet = typeof window !== 'undefined' ? localStorage.getItem('walletAddress') : null;
+  
+  // Use the admin API route to bypass RLS
+  const response = await fetch('/api/admin/tournaments', {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      tournamentId,
+      wallet,
+    }),
+  });
+  
+  const result = await response.json();
+  
+  if (!response.ok) {
+    throw new Error(result.error || 'Failed to delete tournament');
+  }
+  
+  return result.data;
+}
+
+// Update tournament status or properties (admin only)
+export async function updateTournamentStatus(tournamentId: string, updates: {
+  status?: 'upcoming' | 'active' | 'completed',
+  registration_open?: boolean,
+  is_private?: boolean,
+  prize_pool?: number,
+  max_participants?: number,
+  entry_fee?: number
+}) {
+  // Get the wallet address from localStorage
+  const wallet = typeof window !== 'undefined' ? localStorage.getItem('walletAddress') : null;
+  
+  // Use the admin API route to bypass RLS
+  const response = await fetch('/api/admin/tournaments', {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      tournamentId,
+      updates,
+      wallet,
+    }),
+  });
+  
+  const result = await response.json();
+  
+  if (!response.ok) {
+    throw new Error(result.error || 'Failed to update tournament');
+  }
+  
+  return result.data;
 }
 
 // Update participant status (admin only)

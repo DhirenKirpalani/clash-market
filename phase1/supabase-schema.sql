@@ -56,7 +56,10 @@ CREATE TABLE tournaments (
   start_date TIMESTAMP WITH TIME ZONE NOT NULL,
   end_date TIMESTAMP WITH TIME ZONE NOT NULL,
   prize_pool NUMERIC NOT NULL DEFAULT 0,
+  entry_fee NUMERIC NOT NULL DEFAULT 0,
   max_participants INTEGER DEFAULT 32,
+  registration_open BOOLEAN DEFAULT true,
+  is_private BOOLEAN DEFAULT false,
   status TEXT NOT NULL CHECK (status IN ('upcoming', 'active', 'completed')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

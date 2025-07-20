@@ -10,7 +10,7 @@ export default function AdminDashboard() {
         <div>
           <h1 className="text-xl md:text-2xl font-bold">Admin Dashboard</h1>
           <p className="text-sm md:text-base text-gray-400 mt-1">
-            Welcome to the Liqify admin portal
+            Welcome to the Clash Market admin portal
           </p>
         </div>
       </div>
