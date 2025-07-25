@@ -22,7 +22,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if(!pubKey) {
         return res.status(400).json({ error: 'pubKey is required' });
     }
-
     // Check if Solana RPC has been set in environment
     if(!RPC_LINK) {
         return res.status(500).json({ error: 'RPC link is not set' });
