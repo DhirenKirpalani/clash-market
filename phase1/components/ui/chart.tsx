@@ -118,7 +118,7 @@ const ChartTooltipContent = React.forwardRef<
       active,
       payload,
       className,
-      indicator = "dot",
+      indicator = "dot" as const,
       hideLabel = false,
       hideIndicator = false,
       label,
@@ -139,6 +139,8 @@ const ChartTooltipContent = React.forwardRef<
       }
 
       const [item] = payload
+      if (!item) return null
+      
       const key = `${labelKey || item?.dataKey || item?.name || "value"}`
       const itemConfig = getPayloadConfigFromPayload(config, item, key)
       const value =
@@ -149,7 +151,7 @@ const ChartTooltipContent = React.forwardRef<
       return (
         <div className={cn("mb-1.5 text-center text-xs", labelClassName)}>
           <span className="text-[10px] uppercase text-muted-foreground">
-            {labelFormatter?.(value ?? "") ?? value}
+            {labelFormatter?.(value ?? "", label) ?? value}
           </span>
         </div>
       )
@@ -160,7 +162,7 @@ const ChartTooltipContent = React.forwardRef<
       hideLabel,
       labelClassName,
       config,
-      labelKey,
+      labelKey
     ])
 
     if (!active || !payload?.length) {
@@ -180,9 +182,9 @@ const ChartTooltipContent = React.forwardRef<
         {!nestLabel ? tooltipLabel : null}
         <div className="grid gap-1.5">
           {payload.map((item, index) => {
-            const key = `${nameKey || item.name || item.dataKey || "value"}`
+            const key = `${nameKey || item?.name || item?.dataKey || "value"}`
             const itemConfig = getPayloadConfigFromPayload(config, item, key)
-            const indicatorColor = color || item.payload.fill || item.color
+            const indicatorColor = color || item?.payload?.fill || item?.color
 
             return (
               <div
@@ -201,17 +203,16 @@ const ChartTooltipContent = React.forwardRef<
                     ) : (
                       !hideIndicator && (
                         <div
-                          className={cn("flex-none", {
-                            "h-1 w-5 rounded-[1px]":
-                              indicator === "line",
-                            "h-1.5 w-1.5 rounded-[1px] border border-border/30":
-                              indicator === "dot",
-                            "h-px w-5 border-t border-dashed":
-                              indicator === "dashed",
-                            "my-1.5": nestLabel && indicator === "line",
-                            "my-1.5": nestLabel && indicator === "dot",
-                            "my-0.5": nestLabel && indicator === "dashed",
-                          })}
+                          className={cn(
+                            "flex-none",
+                            {
+                              "h-1 w-5 rounded-[1px]": indicator === "line",
+                              "h-1.5 w-1.5 rounded-[1px] border border-border/30": indicator === "dot",
+                              "h-px w-5 border-t border-dashed": indicator === "dashed",
+                              "my-1.5": nestLabel && indicator !== "dashed",
+                              "my-0.5": nestLabel && indicator === "dashed"
+                            }
+                          )}
                           style={
                             {
                               "--color-bg": indicatorColor,
@@ -233,9 +234,9 @@ const ChartTooltipContent = React.forwardRef<
                           {itemConfig?.label || item.name}
                         </span>
                       </div>
-                      {item.value && (
+                      {item?.value != null && (
                         <span className="font-mono font-medium tabular-nums text-foreground">
-                          {item.value.toLocaleString()}
+                          {typeof item?.value === 'number' ? item.value.toLocaleString() : item?.value}
                         </span>
                       )}
                     </div>

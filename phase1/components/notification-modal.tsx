@@ -58,7 +58,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     
     try {
       // Load notifications
-      const savedNotifications = localStorage.getItem('liqify-notifications');
+      const savedNotifications = localStorage.getItem('clash-market-notifications');
       if (savedNotifications) {
         const parsedNotifications = JSON.parse(savedNotifications).map((n: any) => ({
           ...n,
@@ -68,7 +68,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       }
       
       // Load last viewed timestamp
-      const savedTimestamp = localStorage.getItem('liqify-notifications-last-viewed');
+      const savedTimestamp = localStorage.getItem('clash-market-notifications-last-viewed');
       if (savedTimestamp) {
         setLastViewedTimestamp(new Date(savedTimestamp));
       }
@@ -92,7 +92,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     // Save to localStorage
     if (typeof window !== 'undefined') {
       try {
-        localStorage.setItem('liqify-notifications', JSON.stringify(updatedNotifications));
+        localStorage.setItem('clash-market-notifications', JSON.stringify(updatedNotifications));
       } catch (error) {
         console.error('Error saving notifications to localStorage:', error);
       }
@@ -105,7 +105,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     // Clear from localStorage
     if (typeof window !== 'undefined') {
       try {
-        localStorage.setItem('liqify-notifications', JSON.stringify([]));
+        localStorage.setItem('clash-market-notifications', JSON.stringify([]));
       } catch (error) {
         console.error('Error clearing notifications from localStorage:', error);
       }
@@ -121,7 +121,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     // Save to localStorage
     if (typeof window !== 'undefined') {
       try {
-        localStorage.setItem('liqify-notifications-last-viewed', now.toISOString());
+        localStorage.setItem('clash-market-notifications-last-viewed', now.toISOString());
       } catch (error) {
         console.error('Error saving last viewed timestamp to localStorage:', error);
       }

@@ -1,25 +1,28 @@
 "use client";
 
 import React from 'react';
-import { Home, Trophy, BookOpen, Users, User, Bell } from 'lucide-react';
-import { useRouter } from 'next/router';
-import { useWallet } from './wallet-provider';
+import { Home, User, Bell, Gamepad2 } from 'lucide-react';
+import { useRouter, usePathname } from 'next/navigation';
+import { useSupabaseWallet } from '@/hooks/useSupabaseWallet';
 import { useNotifications } from './notification-modal';
+import { useAdminStatus } from '../hooks/useAdminStatus';
 import { useSplashScreen } from './splash-screen';
 
 export function MobileNavigation() {
-  const { connected, connect } = useWallet();
+  const { connected, connect, user } = useSupabaseWallet();
   const { unreadCount } = useNotifications();
   const router = useRouter();
+  const pathname = usePathname();
   const [isNotificationActive, setIsNotificationActive] = React.useState(false);
   const { isVisible: splashVisible } = useSplashScreen();
+  const { isAdmin } = useAdminStatus();
   // Default to 'lobby' for initial server render to avoid hydration mismatch
   const [activeSection, setActiveSection] = React.useState('lobby');
   
   // Set from localStorage after mount
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('activeLiqifySection');
+      const saved = localStorage.getItem('activeClashMarketSection');
       if (saved) setActiveSection(saved);
     }
   }, []);
@@ -27,14 +30,14 @@ export function MobileNavigation() {
   const scrollToSection = (sectionId: string) => {
     // Save active section to localStorage for persistence
     if (typeof window !== 'undefined') {
-      localStorage.setItem('activeLiqifySection', sectionId);
+      localStorage.setItem('activeClashMarketSection', sectionId);
     }
     
     // Update active section state
     setActiveSection(sectionId);
     
     // Check if we're on the home page
-    if (router.pathname === '/') {
+    if (pathname === '/') {
       // If on home page, just scroll to the section
       const element = document.getElementById(sectionId);
       if (element) {
@@ -74,7 +77,7 @@ export function MobileNavigation() {
   const goToProfile = () => {
     // Save active section to localStorage for persistence
     if (typeof window !== 'undefined') {
-      localStorage.setItem('activeLiqifySection', 'profile');
+      localStorage.setItem('activeClashMarketSection', 'profile');
     }
     
     // Update active section state
@@ -82,6 +85,20 @@ export function MobileNavigation() {
     
     // Navigate to profile page
     router.push('/profile');
+  };
+  
+  // Navigate to games screen
+  const goToGames = () => {
+    // Save active section to localStorage for persistence
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('activeClashMarketSection', 'games');
+    }
+    
+    // Update active section state
+    setActiveSection('games');
+    
+    // Navigate to games page
+    router.push('/games');
   };
 
   // Don't render mobile navigation when splash screen is visible
@@ -99,27 +116,11 @@ export function MobileNavigation() {
         </button>
         
         <button 
-          onClick={() => scrollToSection('join')}
-          className={`flex flex-col items-center p-2 transition-colors ${activeSection === 'join' ? 'text-cyber-blue' : 'text-gray-400 hover:text-cyber-blue'}`}
+          onClick={goToGames}
+          className={`flex flex-col items-center p-2 transition-colors ${activeSection === 'games' || pathname === '/games' ? 'text-cyber-blue' : 'text-gray-400 hover:text-cyber-blue'}`}
         >
-          <Users className="h-5 w-5 mb-1" />
-          <span className="text-xs">Join</span>
-        </button>
-        
-        <button 
-          onClick={() => scrollToSection('rules')}
-          className={`flex flex-col items-center p-2 transition-colors ${activeSection === 'rules' ? 'text-neon-cyan' : 'text-gray-400 hover:text-neon-cyan'}`}
-        >
-          <BookOpen className="h-5 w-5 mb-1" />
-          <span className="text-xs">Rules</span>
-        </button>
-        
-        <button 
-          onClick={() => scrollToSection('leaderboard')}
-          className={`flex flex-col items-center p-2 transition-colors ${activeSection === 'leaderboard' ? 'text-warning-orange' : 'text-gray-400 hover:text-warning-orange'}`}
-        >
-          <Trophy className="h-5 w-5 mb-1" />
-          <span className="text-xs">Board</span>
+          <Gamepad2 className="h-5 w-5 mb-1" />
+          <span className="text-xs">Games</span>
         </button>
         
         <button 
