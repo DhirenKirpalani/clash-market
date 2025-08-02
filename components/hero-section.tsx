@@ -37,7 +37,7 @@ export function HeroSection() {
 
   return (
     <section id="lobby" className="min-h-screen flex items-center justify-center relative overflow-hidden hero-bg pt-32 md:pt-24">
-      <FloatingCoins />
+      {/* <FloatingCoins /> */}
       
       <div className="relative z-10 text-center max-w-6xl mx-auto px-4 animate-slide-in">
         {/* Replace text heading with logo */}

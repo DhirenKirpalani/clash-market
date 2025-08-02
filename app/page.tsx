@@ -55,6 +55,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-dark-bg text-white overflow-x-hidden relative">
       <FloatingElements />
+      {/* <FloatingCoins /> */}
       <Navigation />
       <HeroSection />
       <GameModes />
