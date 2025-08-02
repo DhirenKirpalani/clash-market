@@ -3,8 +3,9 @@
 import React, { useState, useEffect } from "react";
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { Clock, Lock, Trophy, Plus, Users, RefreshCw, Calendar } from 'lucide-react';
+import { Clock, Lock, Trophy, Plus, Users, RefreshCw, Calendar, Trash2, X, Check, Edit, Settings } from 'lucide-react';
 import { getTournaments } from '@/lib/tournaments';
+import { getActiveGames, createGame, joinGame, joinGameByCode, cancelGame, startGame, editGame } from '@/lib/games';
 import { Footer } from '@/components/footer';
 import { TournamentResults } from '@/components/tournament-results';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,6 +15,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Toaster } from "@/components/ui/toaster";
+import { useToast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 // Import components with SSR disabled to prevent hydration errors
 const Navigation = dynamic(
@@ -26,12 +30,35 @@ const MobileNavigation = dynamic(
   { ssr: false }
 );
 
-// Mock data for live matches
-const liveMatches = [
-  { id: 1, player1: 'TraderX', player2: 'CryptoNinja', timeLeft: '03:24', potAmount: 25, isPrivate: false },
-  { id: 2, player1: 'SolanaKing', player2: 'DefiWarrior', timeLeft: '08:56', potAmount: 50, isPrivate: false },
-  { id: 3, player1: 'PerpMaster', player2: 'Waiting...', timeLeft: '--:--', potAmount: 15, isPrivate: true },
-];
+// Types for PvP games
+interface Game {
+  id: string;
+  game_code: string | null;  // Updated to allow null for public games
+  creator_id: string;
+  opponent_id: string | null;
+  principal_amount: number;
+  pot_amount: number;
+  token: string;           // New field for token type (e.g., SOL, USDC)
+  duration: number;        // New field for game duration in seconds
+  is_private: boolean;     // New field to indicate if game is private
+  status: 'created' | 'joined' | 'active' | 'completed' | 'canceled';
+  winner_id?: string;
+  creator: {
+    id: string;
+    username: string;
+    wallet_address: string;
+    avatar_url: string | null;
+  };
+  opponent?: {
+    id: string;
+    username: string;
+    wallet_address: string;
+    avatar_url: string | null;
+  } | null;
+  start_time: string | null;
+  end_time: string | null;
+  created_at: string;
+}
 
 // Mock data for leaderboard
 const leaderboardData = [
@@ -51,8 +78,32 @@ export default function GamesPage() {
   const [duration, setDuration] = useState('30');
   const [gameCode, setGameCode] = useState('');
   const [tournaments, setTournaments] = useState<any[]>([]);
+  const [liveGames, setLiveGames] = useState<Game[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGamesLoading, setIsGamesLoading] = useState(false);
   const [error, setError] = useState('');
+  const [gamesError, setGamesError] = useState('');
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [editingGame, setEditingGame] = useState<Game | null>(null);
+  const [editPrivate, setEditPrivate] = useState(false);
+  const [editPrincipalAmount, setEditPrincipalAmount] = useState('');
+  const [editPotAmount, setEditPotAmount] = useState('');
+  const [editToken, setEditToken] = useState('USDC');
+  const [editDuration, setEditDuration] = useState('30');
+  const [editGameCode, setEditGameCode] = useState('');
+  
+  // Get toast function for notifications
+  const { toast } = useToast();
+
+  // Get wallet address from localStorage on component mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const storedWallet = localStorage.getItem('walletAddress');
+      if (storedWallet) {
+        setWalletAddress(storedWallet);
+      }
+    }
+  }, []);
 
   // Generate a random game code when private mode is enabled
   useEffect(() => {
@@ -83,6 +134,404 @@ export default function GamesPage() {
     fetchTournaments();
   }, []);
 
+  // Fetch active games on component mount
+  useEffect(() => {
+    const fetchGames = async () => {
+      setIsGamesLoading(true);
+      setGamesError('');
+      
+      try {
+        const gamesData = await getActiveGames(10);
+        // Transform the data to ensure it matches our Game interface
+        console.log('Games data from DB:', gamesData);
+        const formattedGames = gamesData.map(game => {
+          console.log('Game is_private type:', typeof game.is_private, 'value:', game.is_private);
+          return {
+            ...game,
+            // Ensure creator and opponent are single objects, not arrays
+            creator: Array.isArray(game.creator) ? game.creator[0] : game.creator,
+            opponent: game.opponent ? 
+              (Array.isArray(game.opponent) ? game.opponent[0] : game.opponent) : 
+              null,
+            // Ensure is_private is a boolean
+            is_private: Boolean(game.is_private)
+          };
+        });
+        console.log('Formatted games:', formattedGames);
+        setLiveGames(formattedGames as Game[]);
+      } catch (err) {
+        console.error('Error fetching games:', err);
+        setGamesError('Failed to load games. Please try again.');
+      } finally {
+        setIsGamesLoading(false);
+      }
+    };
+    
+    fetchGames();
+  }, []);
+  
+  // Handle creating a new PvP game
+  const handleCreateGame = async () => {
+    // Use the component's walletAddress state instead of reading directly from localStorage
+    if (!walletAddress) {
+      toast({
+        title: "Wallet Required",
+        description: "Please connect your wallet to create a game.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!principalAmount || !potAmount) {
+      toast({
+        title: "Missing Information",
+        description: "Please enter principal and pot amounts.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      // Type as any to avoid TypeScript issues with null vs undefined
+      const gameData: any = {
+        creator_id: walletAddress,
+        principal_amount: parseFloat(principalAmount),
+        pot_amount: parseFloat(potAmount),
+        token: selectedToken,              // Use dedicated column
+        duration: parseInt(duration, 10),  // Use dedicated column
+        is_private: isPrivate,            // Use dedicated column
+        game_code: isPrivate ? gameCode : null // Pass UI-generated code or null
+      };
+      
+      await createGame(gameData);
+      
+      // Success notification
+      toast({
+        title: "Game Created",
+        description: "Your PvP game has been created successfully.",
+      });
+      
+      // Reset form and reload games
+      setPrincipalAmount('');
+      setPotAmount('');
+      setSelectedToken('USDC');
+      setDuration('30');
+      setIsPrivate(false);
+      setGameCode('');
+      
+      // Reload games list
+      try {
+        const gamesData = await getActiveGames(10);
+        // Transform the data to match our Game interface
+        const formattedGames = gamesData.map(game => ({
+          ...game,
+          creator: Array.isArray(game.creator) ? game.creator[0] : game.creator,
+          opponent: game.opponent ? 
+            (Array.isArray(game.opponent) ? game.opponent[0] : game.opponent) : 
+            null
+        }));
+        setLiveGames(formattedGames as Game[]);
+      } catch (refreshErr) {
+        console.error('Error refreshing games:', refreshErr);
+        // Don't show error to user since the create was successful
+      }
+    } catch (err: any) {
+      console.error('Error creating game:', err);
+      toast({
+        title: "Error Creating Game",
+        description: err.message || 'An error occurred while creating the game.',
+        variant: "destructive"
+      });
+      setError(err.message || 'An error occurred while creating the game.');
+    }
+  };
+  
+  // Handle joining a game
+  const handleJoinGame = async (gameId: string) => {
+    if (!walletAddress) {
+      toast({
+        title: "Wallet Required",
+        description: "Please connect your wallet to join a game.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      await joinGame(gameId, walletAddress);
+      
+      // Reload games list
+      try {
+        const gamesData = await getActiveGames(10);
+        // Transform the data to match our Game interface
+        const formattedGames = gamesData.map(game => ({
+          ...game,
+          creator: Array.isArray(game.creator) ? game.creator[0] : game.creator,
+          opponent: game.opponent ? 
+            (Array.isArray(game.opponent) ? game.opponent[0] : game.opponent) : 
+            null
+        }));
+        setLiveGames(formattedGames as Game[]);
+      } catch (refreshErr) {
+        console.error('Error refreshing games:', refreshErr);
+      }
+      
+      toast({
+        title: "Success", 
+        description: "Game joined successfully!"
+      });
+    } catch (err: any) {
+      console.error('Error joining game:', err);
+      toast({
+        title: "Error", 
+        description: err.message || 'Failed to join game. Please try again.',
+        variant: "destructive"
+      });
+    }
+  };
+  
+  // Handle joining a game by code
+  const handleJoinGameByCode = async () => {
+    if (!walletAddress) {
+      toast({
+        title: "Wallet Required",
+        description: "Please connect your wallet to join a game.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!joinCode) {
+      toast({
+        title: "Missing Information",
+        description: "Please enter a game code.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      await joinGameByCode(joinCode, walletAddress);
+      setJoinCode('');
+      
+      // Reload games list
+      try {
+        const gamesData = await getActiveGames(10);
+        // Transform the data to match our Game interface
+        const formattedGames = gamesData.map(game => ({
+          ...game,
+          creator: Array.isArray(game.creator) ? game.creator[0] : game.creator,
+          opponent: game.opponent ? 
+            (Array.isArray(game.opponent) ? game.opponent[0] : game.opponent) : 
+            null
+        }));
+        setLiveGames(formattedGames as Game[]);
+      } catch (refreshErr) {
+        console.error('Error refreshing games:', refreshErr);
+      }
+      
+      toast({
+        title: "Success",
+        description: "Game joined successfully!"
+      });
+    } catch (err: any) {
+      console.error('Error joining game by code:', err);
+      toast({
+        title: "Error",
+        description: err.message || 'Failed to join game. Please try again.',
+        variant: "destructive"
+      });
+    }
+  };
+  
+  // Handle canceling a game
+  const handleCancelGame = async (gameId: string) => {
+    if (!walletAddress) {
+      toast({
+        title: "Wallet Required",
+        description: "Please connect your wallet to cancel a game.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      await cancelGame(gameId);
+      
+      // Reload games list
+      try {
+        const gamesData = await getActiveGames(10);
+        // Transform the data to match our Game interface
+        const formattedGames = gamesData.map(game => ({
+          ...game,
+          creator: Array.isArray(game.creator) ? game.creator[0] : game.creator,
+          opponent: game.opponent ? 
+            (Array.isArray(game.opponent) ? game.opponent[0] : game.opponent) : 
+            null
+        }));
+        setLiveGames(formattedGames as Game[]);
+      } catch (refreshErr) {
+        console.error('Error refreshing games:', refreshErr);
+      }
+      
+      toast({
+        title: "Success",
+        description: "Game canceled successfully!"
+      });
+    } catch (err: any) {
+      console.error('Error canceling game:', err);
+      toast({
+        title: "Error",
+        description: err.message || 'Failed to cancel game. Please try again.',
+        variant: "destructive"
+      });
+    }
+  };
+  
+  // Open the edit dialog for a game
+  const handleOpenEditDialog = (game: Game) => {
+    setEditingGame(game);
+    setEditPrincipalAmount(game.principal_amount.toString());
+    setEditPotAmount(game.pot_amount.toString());
+    setEditToken(game.token || 'USDC');
+    setEditDuration(game.duration.toString() || '30');
+    setEditPrivate(game.is_private);
+    setEditGameCode(game.game_code || '');
+    
+    // Generate a new game code if switching to private and no code exists
+    if (game.is_private && !game.game_code) {
+      const randomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+      setEditGameCode(randomCode);
+    }
+  };
+  
+  // Save edited game (creator only)
+  const handleSaveEditGame = async () => {
+    if (!editingGame || !walletAddress) return;
+    
+    try {
+      // Validate inputs
+      const principalAmount = parseFloat(editPrincipalAmount);
+      const potAmount = parseFloat(editPotAmount);
+      
+      if (isNaN(principalAmount) || principalAmount <= 0) {
+        toast({
+          title: "Invalid Principal Amount",
+          description: "Please enter a valid principal amount.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      if (isNaN(potAmount) || potAmount <= 0) {
+        toast({
+          title: "Invalid Pot Amount",
+          description: "Please enter a valid pot amount.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      if (editPrivate && !editGameCode) {
+        toast({
+          title: "Game Code Required",
+          description: "Private games must have a game code.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Prepare updates
+      const updates = {
+        principal_amount: principalAmount,
+        pot_amount: potAmount,
+        token: editToken,
+        duration: parseInt(editDuration),
+        is_private: editPrivate,
+        game_code: editPrivate ? editGameCode : null
+      };
+      
+      await editGame(editingGame.id, updates);
+      
+      toast({
+        title: "Game Updated",
+        description: "Your PvP game has been updated successfully.",
+      });
+      
+      // Reset state and reload games
+      setEditingGame(null);
+      
+      // Reload games list
+      try {
+        const gamesData = await getActiveGames(10);
+        const formattedGames = gamesData.map(game => ({
+          ...game,
+          creator: Array.isArray(game.creator) ? game.creator[0] : game.creator,
+          opponent: game.opponent ? 
+            (Array.isArray(game.opponent) ? game.opponent[0] : game.opponent) : 
+            null,
+          // Ensure is_private is a boolean
+          is_private: Boolean(game.is_private)
+        }));
+        setLiveGames(formattedGames as Game[]);
+      } catch (refreshErr) {
+        console.error('Error refreshing games:', refreshErr);
+      }
+    } catch (err: any) {
+      console.error('Error updating game:', err);
+      toast({
+        title: "Error Updating Game",
+        description: err.message || 'An error occurred while updating the game.',
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Handle starting a game when both players are ready
+  const handleStartGame = async (gameId: string) => {
+    if (!walletAddress) {
+      toast({
+        title: "Wallet Required",
+        description: "Please connect your wallet to start a game.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      await startGame(gameId);
+      
+      // Success notification
+      toast({
+        title: "Game Started",
+        description: "Your PvP game has been started successfully."
+      });
+      
+      // Reload games list
+      try {
+        const gamesData = await getActiveGames(10);
+        // Transform the data to match our Game interface
+        const formattedGames = gamesData.map(game => ({
+          ...game,
+          creator: Array.isArray(game.creator) ? game.creator[0] : game.creator,
+          opponent: game.opponent ? 
+            (Array.isArray(game.opponent) ? game.opponent[0] : game.opponent) : 
+            null
+        }));
+        setLiveGames(formattedGames as Game[]);
+      } catch (refreshErr) {
+        console.error('Error refreshing games:', refreshErr);
+      }
+    } catch (err: any) {
+      console.error('Error starting game:', err);
+      toast({
+        title: "Error Starting Game",
+        description: err.message || 'Failed to start game. Please try again.',
+        variant: "destructive"
+      });
+    }
+  };
+
   const getPnLColor = (pnl: number) => {
     if (pnl > 0) return 'text-neon-cyan';
     if (pnl < 0) return 'text-red-400';
@@ -97,8 +546,10 @@ export default function GamesPage() {
         <h1 className="text-4xl md:text-5xl font-orbitron font-bold text-center mb-12 gradient-text-primary">
           Clash Market Arena
         </h1>
+      </div>
 
-      <Tabs defaultValue="pvp" className="w-full">
+      <div className="max-w-6xl mx-auto px-4 pb-12">
+        <Tabs defaultValue="pvp" className="w-full">
         <TabsList className="grid w-full grid-cols-2 mb-8 bg-dark-card border border-dark-border">
           <TabsTrigger value="tournament" className="data-[state=active]:bg-electric-purple/20 data-[state=active]:text-electric-purple">
             Tournament
@@ -287,7 +738,7 @@ export default function GamesPage() {
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Create Game */}
-            <Card className="gaming-card glow-border rounded-xl overflow-hidden hover:shadow-neon transition-all duration-300">
+            <Card className="gaming-card glow-border rounded-xl overflow-hidden hover:shadow-neon-cyan transition-all duration-300 mb-8">
               <CardHeader className="pb-3">
                 <CardTitle className="text-xl text-cyber-blue font-orbitron">Create Game</CardTitle>
                 <CardDescription>Set up a new PvP match</CardDescription>
@@ -372,7 +823,11 @@ export default function GamesPage() {
                 )}
               </CardContent>
               <CardFooter>
-                <Button className="w-full bg-cyber-blue hover:bg-cyber-blue/80">
+                <Button 
+                  className="w-full bg-cyber-blue hover:bg-cyber-blue/80"
+                  onClick={handleCreateGame}
+                  disabled={!walletAddress || !principalAmount || !potAmount}
+                >
                   Create Game
                 </Button>
               </CardFooter>
@@ -385,44 +840,201 @@ export default function GamesPage() {
                 <CardDescription>Currently active PvP games</CardDescription>
               </CardHeader>
               <CardContent>
-                <div>
-                  <table className="w-full">
-                    <thead>
-                      <tr className="text-xs text-muted-foreground border-b border-dark-border">
-                        <th className="text-left pb-2">Players</th>
-                        <th className="text-center pb-2">Time Left</th>
-                        <th className="text-center pb-2">Pot</th>
-                        <th className="text-right pb-2">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {liveMatches.map((match) => (
-                        <tr key={match.id} className="border-b border-dark-border/50">
-                          <td className="py-3">
-                            <div className="font-medium">{match.player1} vs {match.player2}</div>
-                          </td>
-                          <td className="py-3 text-center font-mono">
-                            <span className="font-medium text-warning-orange">{match.timeLeft}</span>
-                          </td>
-                          <td className="py-3 text-center">
-                            <span className="text-neon-cyan">{match.potAmount} USDC</span>
-                          </td>
-                          <td className="py-3 text-right">
-                            {match.isPrivate ? (
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-electric-purple/20 text-electric-purple">
-                                <Lock className="h-3 w-3 mr-1" /> Private
-                              </span>
-                            ) : (
-                              <Button size="sm" variant="outline" className="h-7 bg-transparent border-cyber-blue text-cyber-blue hover:bg-cyber-blue/20">
-                                Join
-                              </Button>
-                            )}
-                          </td>
+                {isGamesLoading ? (
+                  <div className="text-center py-8">
+                    <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
+                    <p className="text-gray-400">Loading games...</p>
+                  </div>
+                ) : gamesError ? (
+                  <div className="text-center py-8 text-red-400">
+                    <p>{gamesError}</p>
+                    <Button 
+                      onClick={async () => {
+                        try {
+                          setIsGamesLoading(true);
+                          const gamesData = await getActiveGames(10);
+                          
+                          // Transform the data to match our Game interface
+                          const formattedGames = gamesData.map(game => ({
+                            ...game,
+                            creator: Array.isArray(game.creator) ? game.creator[0] : game.creator,
+                            opponent: game.opponent ? 
+                              (Array.isArray(game.opponent) ? game.opponent[0] : game.opponent) : 
+                              null
+                          }));
+                          
+                          setLiveGames(formattedGames as Game[]);
+                          setGamesError('');
+                        } catch (err) {
+                          console.error('Error fetching games:', err);
+                          setGamesError('Failed to load PvP games. Please try again.');
+                        } finally {
+                          setIsGamesLoading(false);
+                        }
+                      }}
+                      variant="outline" 
+                      className="mt-2"
+                    >
+                      Try Again
+                    </Button>
+                  </div>
+                ) : liveGames.length === 0 ? (
+                  <div className="text-center py-8 text-gray-400">
+                    <RefreshCw className="h-12 w-12 mx-auto mb-2 opacity-30" />
+                    <p>No active games at the moment.</p>
+                    <p className="text-sm mt-1">Create a new game to get started!</p>
+                  </div>
+                ) : (
+                  <div>
+                    <table className="w-full">
+                      <thead>
+                        <tr className="text-xs text-muted-foreground border-b border-dark-border">
+                          <th className="text-left pb-2">Players</th>
+                          <th className="text-center pb-2">Status</th>
+                          <th className="text-center pb-2">Pot</th>
+                          <th className="text-right pb-2">Action</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {liveGames.map((game: Game) => {
+                          const isCreator = walletAddress === game.creator?.wallet_address;
+                          const isOpponent = walletAddress === game.opponent?.wallet_address;
+                          // Safely get player name with fallbacks
+                          const playerName = game.creator?.username || 
+                            (game.creator?.wallet_address ? game.creator.wallet_address.substring(0, 6) + '...' : 'Unknown');
+                          
+                          // Safely get opponent name with fallbacks
+                          const opponentName = game.opponent ? 
+                            (game.opponent.username || 
+                             (game.opponent.wallet_address ? game.opponent.wallet_address.substring(0, 6) + '...' : 'Unknown')) : 
+                            'Waiting...';
+                            
+                          return (
+                            <tr key={game.id} className="border-b border-dark-border/50">
+                              <td className="py-3">
+                                <div className="font-medium">{playerName} vs {opponentName}</div>
+                                {game.status === 'created' && (
+                                  <div className="text-xs text-muted-foreground mt-0.5">
+                                    Created {new Date(game.created_at).toLocaleString()}
+                                  </div>
+                                )}
+                              </td>
+                              <td className="py-3 text-center">
+                                <span className={
+                                  game.status === 'active' ? 'text-warning-orange' : 
+                                  game.status === 'created' ? 'text-neon-cyan' : 
+                                  'text-electric-purple'
+                                }>
+                                  {game.status.charAt(0).toUpperCase() + game.status.slice(1)}
+                                </span>
+                              </td>
+                              <td className="py-3 text-center">
+                                <span className="text-neon-cyan">{game.pot_amount} USDC</span>
+                              </td>
+                              <td className="py-3 text-right">
+                                {/* Show Action based on game privacy and status */}
+                                {game.status === 'created' && game.is_private && (
+                                  <div className="flex items-center justify-end space-x-2">
+                                    <span className="text-xs font-medium bg-cyber-blue/20 text-cyber-blue py-1 px-2 rounded-full mr-2">
+                                      <Lock className="h-3 w-3 inline mr-1" />
+                                      Private
+                                    </span>
+                                    {/* Private games can only be joined via code */}
+                                    {isCreator && (
+                                      <div className="flex items-center space-x-1">
+                                        <Button 
+                                          size="sm" 
+                                          variant="outline" 
+                                          className="h-7 bg-transparent border-cyber-blue text-cyber-blue hover:bg-cyber-blue/20"
+                                          onClick={() => handleOpenEditDialog(game)}
+                                        >
+                                          <Edit className="h-3 w-3" />
+                                        </Button>
+                                        <Button 
+                                          size="sm" 
+                                          variant="outline" 
+                                          className="h-7 bg-transparent border-red-500 text-red-500 hover:bg-red-500/20"
+                                          onClick={() => handleCancelGame(game.id)}
+                                        >
+                                          <Trash2 className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                                
+                                {/* For public games in created state */}
+                                {game.status === 'created' && !game.is_private && (
+                                  <div className="flex items-center justify-end space-x-2">
+                                    <span className="text-xs font-medium bg-neon-cyan/20 text-neon-cyan py-1 px-2 rounded-full mr-2">
+                                      <Users className="h-3 w-3 inline mr-1" />
+                                      Public
+                                    </span>
+                                    {!isCreator && (
+                                      <Button 
+                                        size="sm" 
+                                        variant="outline" 
+                                        className="h-7 bg-transparent border-neon-cyan text-neon-cyan hover:bg-neon-cyan/20"
+                                        onClick={() => handleJoinGame(game.id)}
+                                        disabled={!walletAddress}
+                                      >
+                                        Join
+                                      </Button>
+                                    )}
+                                    {isCreator && (
+                                      <div className="flex items-center space-x-1">
+                                        <Button 
+                                          size="sm" 
+                                          variant="outline" 
+                                          className="h-7 bg-transparent border-cyber-blue text-cyber-blue hover:bg-cyber-blue/20"
+                                          onClick={() => handleOpenEditDialog(game)}
+                                        >
+                                          <Edit className="h-3 w-3" />
+                                        </Button>
+                                        <Button 
+                                          size="sm" 
+                                          variant="outline" 
+                                          className="h-7 bg-transparent border-red-500 text-red-500 hover:bg-red-500/20"
+                                          onClick={() => handleCancelGame(game.id)}
+                                        >
+                                          <Trash2 className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                                {game.status === 'joined' && (
+                                  <div className="flex items-center justify-end space-x-2">
+                                    {(isCreator || isOpponent) && (
+                                      <>
+                                        <Button 
+                                          size="sm" 
+                                          variant="outline" 
+                                          className="h-7 bg-transparent border-green-500 text-green-500 hover:bg-green-500/20"
+                                          onClick={() => handleStartGame(game.id)}
+                                        >
+                                          <Check className="h-3 w-3" />
+                                        </Button>
+                                        <Button 
+                                          size="sm" 
+                                          variant="outline" 
+                                          className="h-7 bg-transparent border-red-500 text-red-500 hover:bg-red-500/20"
+                                          onClick={() => handleCancelGame(game.id)}
+                                        >
+                                          <X className="h-3 w-3" />
+                                        </Button>
+                                      </>
+                                    )}
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -434,22 +1046,23 @@ export default function GamesPage() {
                 <CardTitle className="text-xl text-electric-purple font-orbitron">Join Private Game</CardTitle>
                 <CardDescription>Enter a code to join a private match</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
+              <CardContent>
+                <div>
                   <Label htmlFor="game-code">Game Code</Label>
                   <Input
                     id="game-code"
                     placeholder="Enter code (e.g. AB12CD)"
                     value={joinCode}
                     onChange={(e) => setJoinCode(e.target.value)}
-                    className="font-mono uppercase bg-dark-bg border-dark-border text-white"
+                    className="font-mono uppercase bg-dark-bg border-dark-border text-white mt-2"
                   />
                 </div>
               </CardContent>
               <CardFooter>
                 <Button
                   className="w-full bg-electric-purple hover:bg-electric-purple/80"
-                  disabled={joinCode.length < 6}
+                  disabled={!walletAddress || joinCode.length < 6}
+                  onClick={handleJoinGameByCode}
                 >
                   Join Game
                 </Button>
@@ -457,7 +1070,7 @@ export default function GamesPage() {
             </Card>
 
             {/* Player Records */}
-            <Card className="gaming-card glow-border rounded-xl overflow-hidden hover:border-yellow-500/50 transition-all duration-300 lg:col-span-2">
+            <Card className="gaming-card glow-border rounded-xl overflow-hidden hover:border-yellow-500/50 transition-all duration-300 lg:col-span-2 mb-16">
               <CardHeader className="pb-3">
                 <CardTitle className="text-xl text-neon-cyan font-orbitron">Player Records</CardTitle>
                 <CardDescription>Top players this season</CardDescription>
@@ -509,11 +1122,119 @@ export default function GamesPage() {
           </div>
         </TabsContent>
       </Tabs>
-      </div>
-      
-      <Footer />
+
+      {/* Edit Game Dialog */}
+      <Dialog open={!!editingGame} onOpenChange={(open) => !open && setEditingGame(null)}>
+        <DialogContent className="sm:max-w-[425px] bg-dark-bg text-white border-dark-border">
+          <DialogHeader>
+            <DialogTitle className="text-xl text-electric-purple font-orbitron">Edit PvP Game</DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Update the details of your PvP game.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-principal">Principal</Label>
+                <Input
+                  id="edit-principal"
+                  type="number"
+                  placeholder="0.00"
+                  value={editPrincipalAmount}
+                  onChange={(e) => setEditPrincipalAmount(e.target.value)}
+                  className="bg-dark-bg border-dark-border"
+                  style={{color: 'white'}}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-pot">Pot</Label>
+                <Input
+                  id="edit-pot"
+                  type="number"
+                  placeholder="0.00"
+                  value={editPotAmount}
+                  onChange={(e) => setEditPotAmount(e.target.value)}
+                  className="bg-dark-bg border-dark-border"
+                  style={{color: 'white'}}
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="edit-token-select">Token</Label>
+              <Select value={editToken} onValueChange={setEditToken}>
+                <SelectTrigger id="edit-token-select" className="bg-dark-bg border-dark-border">
+                  <SelectValue placeholder="Select Token" />
+                </SelectTrigger>
+                <SelectContent className="bg-dark-bg border-dark-border">
+                  <SelectItem value="SOL">SOL</SelectItem>
+                  <SelectItem value="USDC">USDC</SelectItem>
+                  <SelectItem value="BONK">BONK</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="edit-duration-select">Duration</Label>
+              <Select value={editDuration} onValueChange={setEditDuration}>
+                <SelectTrigger id="edit-duration-select" className="bg-dark-bg border-dark-border">
+                  <SelectValue placeholder="Select Duration" />
+                </SelectTrigger>
+                <SelectContent className="bg-dark-bg border-dark-border">
+                  <SelectItem value="15">15 minutes</SelectItem>
+                  <SelectItem value="30">30 minutes</SelectItem>
+                  <SelectItem value="60">60 minutes</SelectItem>
+                  <SelectItem value="90">90 minutes</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="flex items-center space-x-2 pt-2">
+              <Switch
+                id="edit-private-mode"
+                checked={editPrivate}
+                onCheckedChange={setEditPrivate}
+                className="data-[state=checked]:bg-cyber-blue"
+              />
+              <Label htmlFor="edit-private-mode">Private Match</Label>
+            </div>
+            
+            {editPrivate && (
+              <div className="p-3 border border-cyber-blue/30 bg-cyber-blue/10 rounded-md mt-2">
+                <p className="text-sm mb-2">Game code for private match:</p>
+                <Input
+                  value={editGameCode}
+                  onChange={(e) => setEditGameCode(e.target.value.toUpperCase())}
+                  className="font-mono font-bold text-center text-cyber-blue bg-dark-bg border-dark-border"
+                  maxLength={6}
+                />
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button 
+              onClick={() => setEditingGame(null)} 
+              variant="outline"
+              className="bg-transparent border-dark-border text-gray-400 hover:bg-dark-border/30"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSaveEditGame}
+              className="bg-cyber-blue hover:bg-cyber-blue/80"
+            >
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Toast container */}
+      <Toaster />
       
       <MobileNavigation />
+      </div>
+      <Footer />
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -38,6 +39,7 @@ const formatTournamentForUI = (tournament: any) => ({
 export default function TournamentManagement() {
   const [activeTab, setActiveTab] = useState('existing');
   const [tournamentName, setTournamentName] = useState('');
+  const [description, setDescription] = useState('');
   const [entryFee, setEntryFee] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -51,6 +53,7 @@ export default function TournamentManagement() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingTournament, setEditingTournament] = useState<any>(null);
   const [editTournamentName, setEditTournamentName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
   const [editEntryFee, setEditEntryFee] = useState('');
   const [editStartDate, setEditStartDate] = useState('');
   const [editEndDate, setEditEndDate] = useState('');
@@ -108,28 +111,52 @@ export default function TournamentManagement() {
       const maxParticipantsNum = Number(editMaxParticipants) || 32;
       const prizePool = entryFeeNum * maxParticipantsNum;
       
-      // Use PATCH request to the admin tournaments API
-      const response = await fetch('/api/admin/tournaments', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          id: editingTournament.id,
-          name: editTournamentName,
-          start_date: editStartDate,
-          end_date: editEndDate,
-          prize_pool: prizePool,
-          entry_fee: entryFeeNum,
-          max_participants: maxParticipantsNum,
-          is_private: editIsPrivate
-        }),
-      });
+      // Create an object to hold only the changed fields
+      const updates: any = {};
       
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to update tournament');
+      // Compare each field with its original value
+      if (editTournamentName !== editingTournament.name) {
+        updates.name = editTournamentName;
       }
+      
+      if (editStartDate !== editingTournament.startDate) {
+        updates.start_date = editStartDate;
+      }
+      
+      if (editEndDate !== editingTournament.endDate) {
+        updates.end_date = editEndDate;
+      }
+      
+      if (entryFeeNum !== editingTournament.entryFee) {
+        updates.entry_fee = entryFeeNum;
+      }
+      
+      if (maxParticipantsNum !== editingTournament.maxParticipants) {
+        updates.max_participants = maxParticipantsNum;
+      }
+      
+      if (editIsPrivate !== editingTournament.isPrivate) {
+        updates.is_private = editIsPrivate;
+      }
+      
+      // Only update prize pool if either entry fee or max participants changed
+      if (entryFeeNum !== editingTournament.entryFee || maxParticipantsNum !== editingTournament.maxParticipants) {
+        updates.prize_pool = prizePool;
+      }
+      
+      // If no fields changed, show a message and return
+      if (Object.keys(updates).length === 0) {
+        toast({
+          title: "No Changes",
+          description: "No changes were made to the tournament",
+          variant: "default"
+        });
+        setIsEditModalOpen(false);
+        return;
+      }
+      
+      // Use the existing updateTournamentStatus function for proper admin authentication
+      await updateTournamentStatus(editingTournament.id, updates);
       
       toast({
         title: "Success",
@@ -145,7 +172,7 @@ export default function TournamentManagement() {
       console.error('Error updating tournament:', error);
       toast({
         title: "Error",
-        description: "Failed to update tournament. Please try again.",
+        description: error instanceof Error ? error.message : 'Failed to update tournament. Please try again.',
         variant: "destructive"
       });
     }
@@ -545,6 +572,17 @@ export default function TournamentManagement() {
                       required
                     />
                   </div>
+
+                  <div>
+                    <Label htmlFor="tournament-description">Tournament Description</Label>
+                    <Textarea 
+                      id="tournament-description" 
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Describe the tournament rules, prizes, and other details" 
+                      className="bg-dark-bg border-dark-border text-white mt-1 min-h-[100px]"
+                    />
+                  </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -621,6 +659,18 @@ export default function TournamentManagement() {
                       </Select>
                     </div>
                   </div>
+
+                  <div>
+                    <Label htmlFor="prize-pool">Prize Pool (USDC)</Label>
+                    <Input 
+                      id="prize-pool" 
+                      type="number" 
+                      value={entryFee && maxParticipants ? (Number(entryFee) * Number(maxParticipants)).toString() : '0'} 
+                      className="bg-dark-bg border-dark-border text-white mt-1"
+                      disabled
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Auto-calculated based on entry fee and max participants</p>
+                  </div>
                   
                   <div className="flex items-center space-x-2">
                     <Switch 
@@ -667,10 +717,21 @@ export default function TournamentManagement() {
               <Label htmlFor="edit-tournament-name">Tournament Name</Label>
               <Input
                 id="edit-tournament-name"
-                className="bg-dark-input border-dark-border text-white"
+                className="bg-black border-dark-border text-white"
                 value={editTournamentName}
                 onChange={(e) => setEditTournamentName(e.target.value)}
                 placeholder="Enter tournament name"
+              />
+            </div>
+            
+            <div className="grid gap-2">
+              <Label htmlFor="edit-tournament-description">Tournament Description</Label>
+              <Textarea
+                id="edit-tournament-description"
+                className="bg-black border-dark-border text-white min-h-[100px]"
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                placeholder="Describe the tournament rules, prizes, and other details"
               />
             </div>
             
@@ -679,7 +740,7 @@ export default function TournamentManagement() {
                 <Label htmlFor="edit-start-date">Start Date</Label>
                 <Input
                   id="edit-start-date"
-                  className="bg-dark-input border-dark-border text-white"
+                  className="bg-black border-dark-border text-white"
                   type="date"
                   value={editStartDate}
                   onChange={(e) => {
@@ -696,7 +757,7 @@ export default function TournamentManagement() {
                 <Label htmlFor="edit-end-date">End Date</Label>
                 <Input
                   id="edit-end-date"
-                  className="bg-dark-input border-dark-border text-white"
+                  className="bg-black border-dark-border text-white"
                   type="date"
                   value={editEndDate}
                   onChange={(e) => {
@@ -715,7 +776,7 @@ export default function TournamentManagement() {
                 <Label htmlFor="edit-entry-fee">Entry Fee (USDC)</Label>
                 <Input
                   id="edit-entry-fee"
-                  className="bg-dark-input border-dark-border text-white"
+                  className="bg-black border-dark-border text-white"
                   type="number"
                   value={editEntryFee}
                   onChange={(e) => setEditEntryFee(e.target.value)}
@@ -727,13 +788,25 @@ export default function TournamentManagement() {
                 <Label htmlFor="edit-max-participants">Max Participants</Label>
                 <Input
                   id="edit-max-participants"
-                  className="bg-dark-input border-dark-border text-white"
+                  className="bg-black border-dark-border text-white"
                   type="number"
                   value={editMaxParticipants}
                   onChange={(e) => setEditMaxParticipants(e.target.value)}
                   placeholder="32"
                 />
               </div>
+            </div>
+            
+            <div className="grid gap-2">
+              <Label htmlFor="edit-prize-pool">Prize Pool (USDC)</Label>
+              <Input
+                id="edit-prize-pool"
+                className="bg-black border-dark-border text-white"
+                type="number"
+                value={editEntryFee && editMaxParticipants ? (Number(editEntryFee) * Number(editMaxParticipants)).toString() : '0'}
+                disabled
+              />
+              <p className="text-xs text-muted-foreground">Auto-calculated based on entry fee and max participants</p>
             </div>
             
             <div className="flex items-center space-x-2">

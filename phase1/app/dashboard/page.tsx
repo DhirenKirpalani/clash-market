@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { ArrowLeft, Trophy, TrendingUp, Clock, User, ChevronDown, ChevronUp, Medal } from 'lucide-react';
@@ -9,6 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { getTournaments } from "@/lib/tournaments";
+import { supabase } from "@/lib/supabase";
 
 // Import components with SSR disabled to prevent hydration errors
 const Navigation = dynamic(
@@ -21,31 +23,68 @@ const MobileNavigation = dynamic(
   { ssr: false }
 );
 
-// Mock data for battle statistics
-const userStats = {
-  username: "TraderX",
-  rank: 1,
-  totalMatches: 31,
-  wins: 28,
-  losses: 3,
-  winRate: "90.3%",
-  totalPnl: 42.5,
-  highestStreak: 12,
-  currentStreak: 4,
-  averageMatchTime: "24m",
+// Define types for our data
+type Tournament = {
+  id: string;
+  name: string;
+  description: string;
+  start_date: string;
+  end_date: string;
+  prize_pool: number;
+  entry_fee: number;
+  max_participants: number;
+  status: 'upcoming' | 'active' | 'completed';
+};
+
+type PvpMatch = {
+  id: string;
+  winner_id: string;
+  loser_id: string;
+  winner_score: number;
+  loser_score: number;
+  match_date: string;
+  match_data?: any;
+  created_at: string;
+  winner?: {
+    username: string;
+    avatar_url?: string;
+  };
+  loser?: {
+    username: string;
+    avatar_url?: string;
+  };
+};
+
+type UserStats = {
+  username: string;
+  rank: number;
+  totalMatches: number;
+  wins: number;
+  losses: number;
+  winRate: string;
+  totalPnl: number;
+  highestStreak: number;
+  currentStreak: number;
+  averageMatchTime: string;
+  favoriteToken: string;
+};
+
+// Default user stats until we fetch real data
+const defaultUserStats: UserStats = {
+  username: "Loading...",
+  rank: 0,
+  totalMatches: 0,
+  wins: 0,
+  losses: 0,
+  winRate: "0%",
+  totalPnl: 0,
+  highestStreak: 0,
+  currentStreak: 0,
+  averageMatchTime: "0m",
   favoriteToken: "USDC"
 };
 
-// Mock data for battle history
-const battleHistory = [
-  { id: 1, opponent: "CryptoNinja", result: "win", date: "2025-07-11", pnl: 8.2, token: "USDC", duration: "18m" },
-  { id: 2, opponent: "SolanaKing", result: "win", date: "2025-07-10", pnl: 5.5, token: "USDC", duration: "32m" },
-  { id: 3, opponent: "DeFiWarrior", result: "win", date: "2025-07-08", pnl: 12.3, token: "ETH", duration: "26m" },
-  { id: 4, opponent: "PerpMaster", result: "loss", date: "2025-07-05", pnl: -6.5, token: "SOL", duration: "41m" },
-  { id: 5, opponent: "LiquidatorX", result: "win", date: "2025-07-03", pnl: 7.8, token: "USDC", duration: "15m" }
-];
-
-// Mock data for seasonal performance
+// Placeholder data for seasonal performance
 const seasonalData = [
   { season: "Season 3 (Current)", rank: 1, wins: 28, losses: 3, winRate: "90.3%", pnl: 42.5 },
   { season: "Season 2", rank: 3, wins: 21, losses: 7, winRate: "75.0%", pnl: 18.3 },
@@ -54,6 +93,119 @@ const seasonalData = [
 
 export default function DashboardPage() {
   const [timeframe, setTimeframe] = useState("all");
+  const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [matches, setMatches] = useState<PvpMatch[]>([]);
+  const [userStats, setUserStats] = useState<UserStats>(defaultUserStats);
+  const [loading, setLoading] = useState({
+    tournaments: true,
+    matches: true,
+    userStats: true
+  });
+  const [error, setError] = useState<string | null>(null);
+  
+  // Fetch tournaments from database
+  useEffect(() => {
+    const fetchTournaments = async () => {
+      try {
+        const tournamentData = await getTournaments();
+        setTournaments(tournamentData);
+      } catch (err) {
+        console.error('Error fetching tournaments:', err);
+        setError('Failed to load tournaments');
+      } finally {
+        setLoading(prev => ({ ...prev, tournaments: false }));
+      }
+    };
+    
+    fetchTournaments();
+  }, []);
+  
+  // Fetch PVP matches for the activity section
+  useEffect(() => {
+    const fetchMatches = async () => {
+      try {
+        // Get user wallet from localStorage
+        const walletStr = localStorage.getItem('wallet');
+        if (!walletStr) {
+          setLoading(prev => ({ ...prev, matches: false }));
+          return;
+        }
+        
+        const { wallet } = JSON.parse(walletStr);
+        
+        // First get the user ID from the wallet address
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('id')
+          .eq('wallet_address', wallet)
+          .single();
+        
+        if (userError || !userData) {
+          console.error('Error fetching user:', userError);
+          setLoading(prev => ({ ...prev, matches: false }));
+          return;
+        }
+        
+        // Now fetch matches where user is either winner or loser
+        const { data: matchesData, error: matchesError } = await supabase
+          .from('pvp_matches')
+          .select(`
+            *,
+            winner:winner_id(username, avatar_url),
+            loser:loser_id(username, avatar_url)
+          `)
+          .or(`winner_id.eq.${userData.id},loser_id.eq.${userData.id}`)
+          .order('match_date', { ascending: false })
+          .limit(5);
+        
+        if (matchesError) throw matchesError;
+        
+        // Calculate some basic user stats from matches
+        if (matchesData && matchesData.length > 0) {
+          const allMatches = [...matchesData];
+          const wins = allMatches.filter(m => m.winner_id === userData.id).length;
+          const losses = allMatches.filter(m => m.loser_id === userData.id).length;
+          const totalMatches = wins + losses;
+          const winRate = totalMatches > 0 ? ((wins / totalMatches) * 100).toFixed(1) + '%' : '0%';
+          
+          // Calculate PnL (simplified calculation for now)
+          const totalPnl = allMatches.reduce((sum, match) => {
+            if (match.winner_id === userData.id) {
+              return sum + (match.winner_score || 0);
+            } else {
+              return sum - (match.loser_score || 0);
+            }
+          }, 0);
+          
+          // Update user stats
+          setUserStats({
+            username: matchesData[0].winner_id === userData.id 
+              ? matchesData[0].winner?.username || 'Anonymous'
+              : matchesData[0].loser?.username || 'Anonymous',
+            rank: 0, // We'd need a ranking system to determine this
+            totalMatches,
+            wins,
+            losses,
+            winRate,
+            totalPnl,
+            highestStreak: 0, // Would need logic to calculate streaks
+            currentStreak: 0,
+            averageMatchTime: '15m', // Mock value - would need match duration data
+            favoriteToken: 'USDC'
+          });
+        }
+        
+        setMatches(matchesData || []);
+      } catch (err) {
+        console.error('Error fetching matches:', err);
+        setError('Failed to load match history');
+      } finally {
+        setLoading(prev => ({ ...prev, matches: false, userStats: false }));
+      }
+    };
+    
+    fetchMatches();
+  }, []);
 
   const getPnLColor = (pnl: number) => {
     if (pnl > 0) return 'text-neon-cyan';
@@ -225,9 +377,12 @@ export default function DashboardPage() {
         </div>
 
         <Tabs defaultValue="history" className="w-full mb-8">
-          <TabsList className="grid w-full grid-cols-2 mb-6 bg-dark-card border border-dark-border">
+          <TabsList className="grid w-full grid-cols-3 mb-6 bg-dark-card border border-dark-border">
             <TabsTrigger value="history" className="data-[state=active]:bg-electric-purple/20 data-[state=active]:text-electric-purple">
               Battle History
+            </TabsTrigger>
+            <TabsTrigger value="tournaments" className="data-[state=active]:bg-warning-orange/20 data-[state=active]:text-warning-orange">
+              Tournaments
             </TabsTrigger>
             <TabsTrigger value="seasons" className="data-[state=active]:bg-cyber-blue/20 data-[state=active]:text-cyber-blue">
               Seasonal Performance
@@ -254,26 +409,60 @@ export default function DashboardPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {battleHistory.map((battle) => (
-                        <tr key={battle.id} className="border-b border-dark-border/50">
-                          <td className="py-3 text-sm">{battle.date}</td>
-                          <td className="py-3">
-                            <div className="font-medium">{battle.opponent}</div>
-                          </td>
-                          <td className="py-3 text-center">
-                            <span className={getResultColor(battle.result)}>
-                              {battle.result === 'win' ? 'Win' : 'Loss'}
-                            </span>
-                          </td>
-                          <td className="py-3 text-center">{battle.duration}</td>
-                          <td className="py-3 text-center">{battle.token}</td>
-                          <td className="py-3 text-right font-medium">
-                            <span className={getPnLColor(battle.pnl)}>
-                              {battle.pnl > 0 ? '+' : ''}{battle.pnl} {battle.token}
-                            </span>
-                          </td>
+                      {loading.matches ? (
+                        <tr>
+                          <td colSpan={6} className="py-3 text-center">Loading match history...</td>
                         </tr>
-                      ))}
+                      ) : matches.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="py-3 text-center">No match history available</td>
+                        </tr>
+                      ) : matches.map((match) => {
+                        // Get wallet from localStorage to determine if user is winner or loser
+                        let wallet;
+                        try {
+                          const walletStr = localStorage.getItem('wallet');
+                          if (walletStr) {
+                            const walletObj = JSON.parse(walletStr);
+                            wallet = walletObj.wallet;
+                          }
+                        } catch (e) {
+                          console.error('Error parsing wallet:', e);
+                        }
+                        
+                        // Determine if current user is winner or loser
+                        const isWinner = match.winner?.username === userStats.username;
+                        const result = isWinner ? 'win' : 'loss';
+                        const opponent = isWinner ? match.loser?.username || 'Anonymous' : match.winner?.username || 'Anonymous';
+                        
+                        // Format date
+                        const matchDate = new Date(match.match_date);
+                        const formattedDate = `${matchDate.getFullYear()}-${String(matchDate.getMonth() + 1).padStart(2, '0')}-${String(matchDate.getDate()).padStart(2, '0')}`;
+                        
+                        // Calculate PnL
+                        const pnl = isWinner ? match.winner_score : -match.loser_score;
+                        
+                        return (
+                          <tr key={match.id} className="border-b border-dark-border/50">
+                            <td className="py-3 text-sm">{formattedDate}</td>
+                            <td className="py-3">
+                              <div className="font-medium">{opponent}</div>
+                            </td>
+                            <td className="py-3 text-center">
+                              <span className={getResultColor(result)}>
+                                {isWinner ? 'Win' : 'Loss'}
+                              </span>
+                            </td>
+                            <td className="py-3 text-center">15m</td>
+                            <td className="py-3 text-center">USDC</td>
+                            <td className="py-3 text-right font-medium">
+                              <span className={getPnLColor(pnl)}>
+                                {pnl > 0 ? '+' : ''}{pnl} USDC
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -284,6 +473,81 @@ export default function DashboardPage() {
                 </Button>
               </CardFooter>
             </Card>
+          </TabsContent>
+          
+          <TabsContent value="tournaments" className="space-y-4">
+            {loading.tournaments ? (
+              <div className="flex justify-center p-8">
+                <p>Loading tournaments...</p>
+              </div>
+            ) : error ? (
+              <div className="flex justify-center p-8">
+                <p className="text-red-400">{error}</p>
+              </div>
+            ) : tournaments.length === 0 ? (
+              <div className="flex justify-center p-8">
+                <p>No tournaments available</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {tournaments.map((tournament) => {
+                  // Format dates
+                  const startDate = new Date(tournament.start_date);
+                  const endDate = new Date(tournament.end_date);
+                  const formattedStartDate = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`;
+                  const formattedEndDate = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
+                  
+                  // Determine status display
+                  let statusDisplay;
+                  let statusClass;
+                  
+                  if (tournament.status === 'upcoming') {
+                    statusDisplay = 'Registration Open';
+                    statusClass = 'bg-cyber-blue/20 text-cyber-blue';
+                  } else if (tournament.status === 'active') {
+                    statusDisplay = 'In Progress';
+                    statusClass = 'bg-warning-orange/20 text-warning-orange';
+                  } else {
+                    statusDisplay = 'Completed';
+                    statusClass = 'bg-neon-cyan/20 text-neon-cyan';
+                  }
+                  
+                  return (
+                    <Card key={tournament.id} className="border border-dark-border bg-dark-card">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-lg text-electric-purple font-orbitron">{tournament.name}</CardTitle>
+                        <CardDescription>{tournament.description || (tournament.status === 'upcoming' ? 'Upcoming Tournament' : tournament.status === 'active' ? 'Active Tournament' : 'Completed Tournament')}</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">{tournament.status === 'upcoming' ? 'Start Date' : tournament.status === 'active' ? 'End Date' : 'Ended On'}</span>
+                            <span>{tournament.status === 'upcoming' ? formattedStartDate : formattedEndDate}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Entry Fee</span>
+                            <span>{tournament.entry_fee} USDC</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Prize Pool</span>
+                            <span className="font-medium text-warning-orange">{tournament.prize_pool} USDC</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Status</span>
+                            <span className={`${statusClass} text-xs px-2 py-0.5 rounded`}>{statusDisplay}</span>
+                          </div>
+                        </div>
+                      </CardContent>
+                      <CardFooter>
+                        <Button variant="outline" className="w-full bg-transparent border-electric-purple text-electric-purple hover:bg-electric-purple/20">
+                          {tournament.status === 'upcoming' ? 'Register Now' : tournament.status === 'active' ? 'View Standings' : 'View Results'}
+                        </Button>
+                      </CardFooter>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
           </TabsContent>
           
           <TabsContent value="seasons" className="space-y-4">

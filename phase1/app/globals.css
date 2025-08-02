@@ -1,0 +1,25 @@
+/* Add white text to edit game dialog inputs */
+.bg-dark-bg input,
+.bg-dark-bg input::placeholder,
+.bg-dark-bg input[type="number"],
+.bg-dark-bg input[type="text"],
+.bg-dark-bg input[value],
+.bg-dark-bg select,
+.bg-dark-bg select option,
+.bg-dark-bg .select-trigger,
+.bg-dark-bg .select-value {
+  color: white !important;
+  caret-color: white !important;
+}
+
+/* Override any shadow DOM or component styling */
+.bg-dark-bg *[class*="input"],
+.bg-dark-bg *[class*="select"] {
+  color: white !important;
+}
+
+/* Target specifically dialog inputs */
+.bg-dark-bg[class*="dialog"] input,
+.bg-dark-bg[class*="dialog"] select {
+  color: white !important;
+}
