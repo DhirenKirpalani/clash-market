@@ -1,2 +1,2 @@
-# alphapit-pvp-app
-A Player-vs-Player (PvP) crypto trading app where users compete in real-time to maximize their portfolio profits. Integrated with CoinGecko's API.
+# Clash Market
+A trust-minimized, PvP perps trading game built on Solana using the Drift Protocol. Compete in fair-entry trading battles and win prize pools based on %PnL.
