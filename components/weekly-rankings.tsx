@@ -8,8 +8,25 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Medal, ChevronDown, ChevronUp, Minus, Loader2 } from 'lucide-react';
 
+// Define the type for ranking items
+interface UserData {
+  id: string;
+  wallet_address: string;
+  username?: string;
+  avatar_url?: string | null;
+}
+
+interface RankingItem {
+  id: any;
+  rank: number;
+  points: number;
+  user_id: string;
+  rank_change?: number;
+  users: UserData | any; // Use any type to accommodate both single object and array formats
+}
+
 export default function WeeklyRankings() {
-  const [rankings, setRankings] = useState([]);
+  const [rankings, setRankings] = useState<RankingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const { weekNumber, year } = getCurrentWeekInfo();
   const { user } = useSupabaseWallet();
@@ -19,7 +36,8 @@ export default function WeeklyRankings() {
       try {
         setLoading(true);
         const data = await getWeeklyRankings(weekNumber, year);
-        setRankings(data);
+        // Force the type to match our RankingItem[] type
+        setRankings(data as unknown as RankingItem[]);
       } catch (error) {
         console.error('Error fetching rankings:', error);
       } finally {
@@ -30,7 +48,7 @@ export default function WeeklyRankings() {
     fetchRankings();
   }, [weekNumber, year]);
   
-  const getUserInitials = (user) => {
+  const getUserInitials = (user: any) => {
     if (user?.username) {
       return user.username.slice(0, 2).toUpperCase();
     } else if (user?.wallet_address) {
@@ -40,19 +58,19 @@ export default function WeeklyRankings() {
     }
   };
   
-  const formatWalletAddress = (address) => {
+  const formatWalletAddress = (address: string | undefined) => {
     if (!address) return '???';
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
   
-  const getRankChangeIcon = (change) => {
+  const getRankChangeIcon = (change: number | undefined) => {
     if (!change) return <Minus className="h-4 w-4 text-gray-500" />;
     if (change > 0) return <ChevronUp className="h-4 w-4 text-emerald-500" />;
     if (change < 0) return <ChevronDown className="h-4 w-4 text-red-500" />;
     return <Minus className="h-4 w-4 text-gray-500" />;
   };
   
-  const getMedalColor = (rank) => {
+  const getMedalColor = (rank: number) => {
     if (rank === 1) return 'text-yellow-500';
     if (rank === 2) return 'text-gray-300';
     if (rank === 3) return 'text-amber-700';
@@ -113,7 +131,7 @@ export default function WeeklyRankings() {
                     <TableCell>
                       <div className="flex items-center">
                         <Avatar className="h-6 w-6 mr-2">
-                          <AvatarImage src={item.users?.avatar_url} />
+                          <AvatarImage src={item.users?.avatar_url || undefined} />
                           <AvatarFallback className="bg-electric-purple/20 text-xs">
                             {getUserInitials(item.users)}
                           </AvatarFallback>
