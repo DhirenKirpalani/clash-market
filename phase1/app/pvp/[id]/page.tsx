@@ -9,6 +9,9 @@ import { Footer } from '@/components/footer';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CountdownTimer } from '@/components/countdown-timer';
+import DriftPositionCard from "@/components/DriftPositionCard";
+import { PublicKey } from "@solana/web3.js";
+import { formatCurrency, formatPercentage, getPnLSign, getPnLColor } from "@/lib/display";
 
 // Import components with SSR disabled to prevent hydration errors
 const Navigation = dynamic(
@@ -32,6 +35,7 @@ interface Position {
 
 interface Player {
   username: string;
+  address: string;
   openPositions: number;
   currentBalance: number;
   totalPnL: number;
@@ -60,6 +64,7 @@ const fetchSessionData = async (sessionId: string): Promise<PvpSession> => {
     players: [
       {
         username: "TraderAlpha",
+        address: "BmBq8NeDva9eLgpRJCnHTwHK2qtPBfTQYHXvBYWYp97",
         openPositions: 8,
         currentBalance: 100.2,
         totalPnL: 9.99,
@@ -71,6 +76,19 @@ const fetchSessionData = async (sessionId: string): Promise<PvpSession> => {
       },
       {
         username: "CryptoMaster",
+        address: "BmBq8NeDva9eLgpRJCnHTwHK2qtPBfTQYHXvBYWYp97",
+        openPositions: 5,
+        currentBalance: 95.8,
+        totalPnL: -2.45,
+        positions: [
+          { market: "BTC-PERP", side: "short", size: 40, pnl: -3.2, pnlPercent: -8 },
+          { market: "SOL-PERP", side: "long", size: 35, pnl: 1.8, pnlPercent: 5.14 },
+          { market: "ETH-PERP", side: "short", size: 15, pnl: -1.05, pnlPercent: -7 }
+        ]
+      },
+      {
+        username: "CryptoMaster",
+        address: "BmBq8NeDva9eLgpRJCnHTwHK2qtPBfTQYHXvBYWYp97",
         openPositions: 5,
         currentBalance: 95.8,
         totalPnL: -2.45,
@@ -110,80 +128,75 @@ export default function PvpSessionPage() {
     loadSessionData();
   }, [sessionId]);
 
-  const getPnLColor = (pnl: number) => {
-    if (pnl > 0) return 'text-neon-cyan';
-    if (pnl < 0) return 'text-red-400';
-    return 'text-gray-400';
-  };
+  /* DEPRECATED: */
+  // const getSideIcon = (side: string) => {
+  //   if (side === 'long') return <ArrowUpRight className="h-4 w-4 text-neon-cyan" />;
+  //   return <ArrowDownRight className="h-4 w-4 text-red-400" />;
+  // };
 
-  const getSideIcon = (side: string) => {
-    if (side === 'long') return <ArrowUpRight className="h-4 w-4 text-neon-cyan" />;
-    return <ArrowDownRight className="h-4 w-4 text-red-400" />;
-  };
+  // const getSideText = (side: string) => {
+  //   if (side === 'long') return 'text-neon-cyan';
+  //   return 'text-red-400';
+  // };
 
-  const getSideText = (side: string) => {
-    if (side === 'long') return 'text-neon-cyan';
-    return 'text-red-400';
-  };
+  // const renderPositionCard = (position: Position) => {
+  //   return (
+  //     <Card key={`${position.market}-${position.side}`} className="border border-dark-border bg-dark-card/50 hover:bg-dark-card mb-3 transition-all">
+  //       <CardContent className="p-4">
+  //         <div className="flex justify-between items-center">
+  //           <div className="flex items-center gap-2">
+  //             {getSideIcon(position.side)}
+  //             <span className={`font-bold ${getSideText(position.side)}`}>
+  //               {position.side.charAt(0).toUpperCase() + position.side.slice(1)}
+  //             </span>
+  //             <span className="text-sm font-medium">{position.market}</span>
+  //           </div>
+  //           <div className={`font-bold ${getPnLColor(position.pnl)}`}>
+  //             {position.pnl > 0 ? '+' : ''}{position.pnl} USDC ({position.pnlPercent > 0 ? '+' : ''}{position.pnlPercent}%)
+  //           </div>
+  //         </div>
+  //         <div className="mt-2 flex justify-between items-center text-sm">
+  //           <span className="text-muted-foreground">Size</span>
+  //           <span className="font-medium">${position.size}</span>
+  //         </div>
+  //       </CardContent>
+  //     </Card>
+  //   );
+  // };
 
-  const renderPositionCard = (position: Position) => {
-    return (
-      <Card key={`${position.market}-${position.side}`} className="border border-dark-border bg-dark-card/50 hover:bg-dark-card mb-3 transition-all">
-        <CardContent className="p-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              {getSideIcon(position.side)}
-              <span className={`font-bold ${getSideText(position.side)}`}>
-                {position.side.charAt(0).toUpperCase() + position.side.slice(1)}
-              </span>
-              <span className="text-sm font-medium">{position.market}</span>
-            </div>
-            <div className={`font-bold ${getPnLColor(position.pnl)}`}>
-              {position.pnl > 0 ? '+' : ''}{position.pnl} USDC ({position.pnlPercent > 0 ? '+' : ''}{position.pnlPercent}%)
-            </div>
-          </div>
-          <div className="mt-2 flex justify-between items-center text-sm">
-            <span className="text-muted-foreground">Size</span>
-            <span className="font-medium">${position.size}</span>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
+  // const renderPlayerCard = (player: Player, index: number) => {
+  //   return (
+  //     <Card key={player.username} className="border border-dark-border bg-dark-card">
+  //       <CardHeader className="pb-2">
+  //         <CardTitle className="text-xl text-electric-purple font-orbitron">{player.username}</CardTitle>
+  //         <CardDescription>Trading statistics</CardDescription>
+  //       </CardHeader>
+  //       <CardContent>
+  //         <div className="grid grid-cols-3 gap-4 mb-6">
+  //           <div className="bg-dark-bg p-3 rounded-lg text-center">
+  //             <div className="text-sm text-muted-foreground">Open Positions</div>
+  //             <div className="text-xl font-bold">{player.openPositions}</div>
+  //           </div>
+  //           <div className="bg-dark-bg p-3 rounded-lg text-center">
+  //             <div className="text-sm text-muted-foreground">Balance</div>
+  //             <div className="text-xl font-bold">${player.currentBalance.toFixed(2)}</div>
+  //           </div>
+  //           <div className="bg-dark-bg p-3 rounded-lg text-center">
+  //             <div className="text-sm text-muted-foreground">Total P&L</div>
+  //             <div className={`text-xl font-bold ${getPnLColor(player.totalPnL)}`}>
+  //               {player.totalPnL > 0 ? '+' : ''}{player.totalPnL.toFixed(2)}
+  //             </div>
+  //           </div>
+  //         </div>
 
-  const renderPlayerCard = (player: Player, index: number) => {
-    return (
-      <Card key={player.username} className="border border-dark-border bg-dark-card">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-xl text-electric-purple font-orbitron">{player.username}</CardTitle>
-          <CardDescription>Trading statistics</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-3 gap-4 mb-6">
-            <div className="bg-dark-bg p-3 rounded-lg text-center">
-              <div className="text-sm text-muted-foreground">Open Positions</div>
-              <div className="text-xl font-bold">{player.openPositions}</div>
-            </div>
-            <div className="bg-dark-bg p-3 rounded-lg text-center">
-              <div className="text-sm text-muted-foreground">Balance</div>
-              <div className="text-xl font-bold">${player.currentBalance.toFixed(2)}</div>
-            </div>
-            <div className="bg-dark-bg p-3 rounded-lg text-center">
-              <div className="text-sm text-muted-foreground">Total P&L</div>
-              <div className={`text-xl font-bold ${getPnLColor(player.totalPnL)}`}>
-                {player.totalPnL > 0 ? '+' : ''}{player.totalPnL.toFixed(2)}
-              </div>
-            </div>
-          </div>
-
-          <h3 className="text-lg font-semibold font-orbitron mb-3">Positions</h3>
-          <div className="space-y-3">
-            {player.positions.map((position: Position) => renderPositionCard(position))}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
+  //         <h3 className="text-lg font-semibold font-orbitron mb-3">Positions</h3>
+  //         <div className="space-y-3">
+  //           {player.positions.map((position: Position) => renderPositionCard(position))}
+  //         </div>
+  //       </CardContent>
+  //     </Card>
+  //   );
+  // };
 
   // Render loading state
   if (isLoading) {
@@ -274,7 +287,9 @@ export default function PvpSessionPage() {
 
         {/* Player Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          {sessionData.players.map((player, index) => renderPlayerCard(player, index))}
+          {sessionData.players.map((player, index) =>
+            <DriftPositionCard key={player.address} user={new PublicKey(player.address)} name={player.username} />
+          )}
         </div>
       </div>
 
