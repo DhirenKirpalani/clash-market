@@ -5,6 +5,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { NavigationLoader } from "@/components/navigation-loader";
+import { SolanaProvider } from '@/components/SolanaProvider';
 
 // Import components with SSR disabled to prevent hydration errors
 const WalletProvider = dynamic(
@@ -24,17 +25,19 @@ const SplashScreenProvider = dynamic(
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <QueryClientProvider client={queryClient}>
-      <NotificationProvider>
-        <WalletProvider>
-          <TooltipProvider>
-            <SplashScreenProvider>
-              <NavigationLoader />
-              {children}
-            </SplashScreenProvider>
-          </TooltipProvider>
-        </WalletProvider>
-      </NotificationProvider>
-    </QueryClientProvider>
+    <SolanaProvider>
+      <QueryClientProvider client={queryClient}>
+        <NotificationProvider>
+          <WalletProvider>
+            <TooltipProvider>
+              <SplashScreenProvider>
+                <NavigationLoader />
+                {children}
+              </SplashScreenProvider>
+            </TooltipProvider>
+          </WalletProvider>
+        </NotificationProvider>
+      </QueryClientProvider>
+    </SolanaProvider>
   );
 }

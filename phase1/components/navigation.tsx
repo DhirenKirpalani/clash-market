@@ -12,6 +12,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Bell, CheckCircle, AlertTriangle, Info, User, ShieldCheck, Wallet } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
 import { useSplashScreen } from './splash-screen';
+import dynamic from 'next/dynamic';
+
+const WalletMultiButtonDynamic = dynamic(
+    async () => (await import('@solana/wallet-adapter-react-ui')).WalletMultiButton,
+    { ssr: false }
+);
 
 export function Navigation() {
   const { connected, connecting, loading, publicKey, user, connect, disconnect } = useSupabaseWallet();
@@ -285,8 +291,9 @@ export function Navigation() {
                 </Button>
               </Link>
             )}
-            
-            <Button
+
+            <WalletMultiButtonDynamic />
+            {/*<Button
               onClick={connected ? disconnect : connect}
               disabled={connecting || loading}
               className={`gaming-button ${connected ? 'px-4 py-2 bg-gradient-to-r from-electric-purple to-cyber-blue hover:from-cyber-blue hover:to-electric-purple' : 'px-4 py-2'} rounded-lg font-semibold transition-all duration-300 hover:shadow-glow-sm`}
@@ -322,7 +329,7 @@ export function Navigation() {
                   Connect Wallet
                 </div>
               )}
-            </Button>
+            </Button>*/}
           </div>
         </div>
       </div>
