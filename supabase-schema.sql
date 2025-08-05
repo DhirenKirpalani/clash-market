@@ -215,6 +215,7 @@ CREATE TABLE games (
   status TEXT NOT NULL CHECK (status IN ('created', 'joined', 'active', 'completed', 'canceled')),
   winner_id UUID REFERENCES users(id) ON DELETE SET NULL,
   private_key_session_id UUID REFERENCES sessions(id) ON DELETE SET NULL,
+  public_key TEXT,                   -- Public key for the game
   start_time TIMESTAMP WITH TIME ZONE,
   end_time TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
