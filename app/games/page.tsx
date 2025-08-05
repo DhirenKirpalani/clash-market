@@ -18,6 +18,7 @@ import { Switch } from "@/components/ui/switch";
 import { Toaster } from "@/components/ui/toaster";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { GameCreationModal } from "@/components/game-creation-modal";
 
 // Import components with SSR disabled to prevent hydration errors
 const Navigation = dynamic(
@@ -77,6 +78,8 @@ export default function GamesPage() {
   const [principalAmount, setPrincipalAmount] = useState('');
   const [duration, setDuration] = useState('30');
   const [gameCode, setGameCode] = useState('');
+  const [showCreationModal, setShowCreationModal] = useState(false);
+  const [createdGameCode, setCreatedGameCode] = useState<string | null>(null);
   const [tournaments, setTournaments] = useState<any[]>([]);
   const [liveGames, setLiveGames] = useState<Game[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -192,6 +195,9 @@ export default function GamesPage() {
     }
     
     try {
+      // Show the gamified modal with progress bar
+      setShowCreationModal(true);
+
       // Type as any to avoid TypeScript issues with null vs undefined
       const gameData: any = {
         creator_id: walletAddress,
@@ -203,7 +209,10 @@ export default function GamesPage() {
         game_code: isPrivate ? gameCode : null // Pass UI-generated code or null
       };
       
-      await createGame(gameData);
+      const result = await createGame(gameData);
+      
+      // Store the game code for redirection
+      setCreatedGameCode(result.game_code);
       
       // Success notification
       toast({
@@ -236,6 +245,8 @@ export default function GamesPage() {
         // Don't show error to user since the create was successful
       }
     } catch (err: any) {
+      // Close modal on error
+      setShowCreationModal(false);
       console.error('Error creating game:', err);
       toast({
         title: "Error Creating Game",
@@ -1228,6 +1239,13 @@ export default function GamesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Game Creation Modal */}
+      <GameCreationModal 
+        isOpen={showCreationModal}
+        onClose={() => setShowCreationModal(false)}
+        gameCode={createdGameCode}
+      />
 
       {/* Toast container */}
       <Toaster />
