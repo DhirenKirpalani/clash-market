@@ -57,7 +57,8 @@
     "types": [
       "node",
       "react",
-      "react-dom"
+      "react-dom",
+      "next"
     ],
     "lib": [
       "DOM",
