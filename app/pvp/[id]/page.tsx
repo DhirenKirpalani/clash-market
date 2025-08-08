@@ -48,40 +48,54 @@ interface PvpSession {
 
 // Mock data function - in a real app, this would fetch from an API
 const fetchSessionData = async (sessionId: string): Promise<PvpSession> => {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  // Mock data for PVP session
-  return {
-    id: sessionId,
-    timeLeft: new Date(Date.now() + 3600000 * 4), // 4 hours from now
-    prizePool: 100,
-    currency: "USDC",
-    players: [
-      {
-        username: "TraderAlpha",
-        openPositions: 8,
-        currentBalance: 100.2,
-        totalPnL: 9.99,
-        positions: [
-          { market: "BTC-PERP", side: "long", size: 50, pnl: 1, pnlPercent: 2 },
-          { market: "SOL-PERP", side: "short", size: 20, pnl: -0.5, pnlPercent: -2.5 },
-          { market: "ETH-PERP", side: "long", size: 30, pnl: 3.2, pnlPercent: 10.67 }
-        ]
-      },
-      {
-        username: "CryptoMaster",
-        openPositions: 5,
-        currentBalance: 95.8,
-        totalPnL: -2.45,
-        positions: [
-          { market: "BTC-PERP", side: "short", size: 40, pnl: -3.2, pnlPercent: -8 },
-          { market: "SOL-PERP", side: "long", size: 35, pnl: 1.8, pnlPercent: 5.14 },
-          { market: "ETH-PERP", side: "short", size: 15, pnl: -1.05, pnlPercent: -7 }
-        ]
-      }
-    ]
-  };
+  try {
+    console.log('Getting session data for ID:', sessionId);
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Mock data for PVP session
+    const data = {
+      id: sessionId,
+      timeLeft: new Date(Date.now() + 3600000 * 4), // 4 hours from now
+      prizePool: 100,
+      currency: "USDC",
+      players: [
+        {
+          username: "TraderAlpha",
+          openPositions: 8,
+          currentBalance: 100.2,
+          totalPnL: 9.99,
+          positions: [
+            { market: "BTC-PERP", side: "long", size: 50, pnl: 1, pnlPercent: 2 },
+            { market: "SOL-PERP", side: "short", size: 20, pnl: -0.5, pnlPercent: -2.5 },
+            { market: "ETH-PERP", side: "long", size: 30, pnl: 3.2, pnlPercent: 10.67 }
+          ]
+        },
+        {
+          username: "CryptoMaster",
+          openPositions: 5,
+          currentBalance: 95.8,
+          totalPnL: -2.45,
+          positions: [
+            { market: "BTC-PERP", side: "short", size: 40, pnl: -3.2, pnlPercent: -8 },
+            { market: "SOL-PERP", side: "long", size: 35, pnl: 1.8, pnlPercent: 5.14 },
+            { market: "ETH-PERP", side: "short", size: 15, pnl: -1.05, pnlPercent: -7 }
+          ]
+        }
+      ]
+    };
+    
+    console.log('Raw session data:', data);
+    
+    if (!data) {
+      throw new Error("Session not found");
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error in fetchSessionData:', error);
+    throw error;
+  }
 };
 
 export default function PvpSessionPage() {

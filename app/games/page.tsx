@@ -79,7 +79,10 @@ export default function GamesPage() {
   const [duration, setDuration] = useState('30');
   const [gameCode, setGameCode] = useState('');
   const [showCreationModal, setShowCreationModal] = useState(false);
+  const [showJoinModal, setShowJoinModal] = useState(false);
   const [createdGameCode, setCreatedGameCode] = useState<string | null>(null);
+  const [joiningGameId, setJoiningGameId] = useState<string | null>(null);
+  const [joinedGameCode, setJoinedGameCode] = useState<string | null>(null);
   const [tournaments, setTournaments] = useState<any[]>([]);
   const [liveGames, setLiveGames] = useState<Game[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -269,7 +272,39 @@ export default function GamesPage() {
     }
     
     try {
-      await joinGame(gameId, walletAddress);
+      // Find the game by ID to get its code
+      const gameToJoin = liveGames.find(game => game.id === gameId);
+      if (!gameToJoin) {
+        throw new Error("Game not found");
+      }
+
+      // Set the game ID for joining and show the modal
+      setJoiningGameId(gameId);
+      
+      // If the game has a game_code, use that, otherwise use the game ID
+      const codeForRedirect = gameToJoin.game_code || gameToJoin.id;
+      setJoinedGameCode(codeForRedirect);
+      
+      // Show the creation modal first, actual joining will happen after modal animation
+      setShowCreationModal(true);
+      
+    } catch (err: any) {
+      console.error('Error preparing to join game:', err);
+      toast({
+        title: "Error", 
+        description: err.message || 'Failed to prepare game join. Please try again.',
+        variant: "destructive"
+      });
+    }
+  };
+  
+  // Function to actually join the game after the modal animation
+  const completeJoinGame = async () => {
+    if (!joiningGameId || !walletAddress) return;
+    
+    try {
+      // Join the game and automatically set status to active
+      await joinGame(joiningGameId, walletAddress);
       
       // Reload games list
       try {
@@ -289,8 +324,13 @@ export default function GamesPage() {
       
       toast({
         title: "Success", 
-        description: "Game joined successfully!"
+        description: "Game joined successfully! Status is now active."
       });
+      
+      // Redirect to the game page after successful join
+      if (joinedGameCode) {
+        window.location.href = `/pvp/${joinedGameCode}`;
+      }
     } catch (err: any) {
       console.error('Error joining game:', err);
       toast({
@@ -1026,14 +1066,16 @@ export default function GamesPage() {
                                         >
                                           <Check className="h-3 w-3" />
                                         </Button>
-                                        <Button 
-                                          size="sm" 
-                                          variant="outline" 
-                                          className="h-7 bg-transparent border-red-500 text-red-500 hover:bg-red-500/20"
-                                          onClick={() => handleCancelGame(game.id)}
-                                        >
-                                          <X className="h-3 w-3" />
-                                        </Button>
+                                        {isCreator && (
+                                          <Button 
+                                            size="sm" 
+                                            variant="outline" 
+                                            className="h-7 bg-transparent border-red-500 text-red-500 hover:bg-red-500/20"
+                                            onClick={() => handleCancelGame(game.id)}
+                                          >
+                                            <X className="h-3 w-3" />
+                                          </Button>
+                                        )}
                                       </>
                                     )}
                                   </div>
@@ -1244,7 +1286,9 @@ export default function GamesPage() {
       <GameCreationModal 
         isOpen={showCreationModal}
         onClose={() => setShowCreationModal(false)}
-        gameCode={createdGameCode}
+        gameCode={joiningGameId ? joinedGameCode : createdGameCode}
+        isJoining={!!joiningGameId}
+        onJoinComplete={joiningGameId ? completeJoinGame : undefined}
       />
 
       {/* Toast container */}

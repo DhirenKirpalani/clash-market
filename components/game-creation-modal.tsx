@@ -7,13 +7,15 @@ interface GameCreationModalProps {
   isOpen: boolean;
   onClose: () => void;
   gameCode?: string | null;
+  onJoinComplete?: () => void;
+  isJoining?: boolean;
 }
 
-export function GameCreationModal({ isOpen, onClose, gameCode }: GameCreationModalProps) {
+export function GameCreationModal({ isOpen, onClose, gameCode, onJoinComplete, isJoining = false }: GameCreationModalProps) {
   const [progress, setProgress] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
   const [phase, setPhase] = useState(1);
-  const [phaseText, setPhaseText] = useState('Initializing game environment...');
+  const [phaseText, setPhaseText] = useState(isJoining ? 'Connecting to game session...' : 'Initializing game environment...');
   
   useEffect(() => {
     // Reset state when modal opens
@@ -21,7 +23,7 @@ export function GameCreationModal({ isOpen, onClose, gameCode }: GameCreationMod
       setProgress(0);
       setIsComplete(false);
       setPhase(1);
-      setPhaseText('Initializing game environment...');
+      setPhaseText(isJoining ? 'Connecting to game session...' : 'Initializing game environment...');
       
       // Set up progress interval (5 seconds total duration)
       const interval = setInterval(() => {
@@ -29,36 +31,39 @@ export function GameCreationModal({ isOpen, onClose, gameCode }: GameCreationMod
           const newProgress = prevProgress + 2; // Increment by 2% each time
           
           // Update phases based on progress
-          if (newProgress >= 30 && newProgress < 31 && phase === 1) {
+          if (newProgress >= 30 && prevProgress < 30) {
             setPhase(2);
-            setPhaseText('Setting up virtual trading arena...');
-          } else if (newProgress >= 60 && newProgress < 61 && phase === 2) {
+            setPhaseText(isJoining ? 'Validating game environment...' : 'Creating game session...');
+          } else if (newProgress >= 60 && prevProgress < 60) {
             setPhase(3);
-            setPhaseText('Preparing market simulation data...');
-          } else if (newProgress >= 85 && newProgress < 86 && phase === 3) {
+            setPhaseText(isJoining ? 'Joining trading arena...' : 'Setting up trading environment...');
+          } else if (newProgress >= 85 && prevProgress < 85) {
             setPhase(4);
-            setPhaseText('Finalizing game configuration...');
+            setPhaseText(isJoining ? 'Preparing game interface...' : 'Finalizing...');
           }
           
-          // When we reach 100%, mark as complete and clear interval
+          // When we reach 100%, mark as complete
           if (newProgress >= 100) {
             setIsComplete(true);
-            setPhaseText('Game created successfully!');
+            setPhaseText(isJoining ? 'Game joined successfully!' : 'Game created successfully!');
             clearInterval(interval);
             
-            // Animation is complete - user must click button to proceed
+            // If this is a join operation and onJoinComplete callback is provided, call it
+            if (isJoining && onJoinComplete) {
+              onJoinComplete();
+            }
             
             return 100;
           }
           
           return newProgress;
         });
-      }, 100); // Update every 100ms to complete in 5 seconds (50 steps * 100ms = 5000ms)
+      }, 100);
       
       // Clean up interval on unmount
       return () => clearInterval(interval);
     }
-  }, [isOpen]);
+  }, [isOpen, isJoining, onJoinComplete]);
   
   // Function to get the appropriate icon based on phase
   const getPhaseIcon = () => {
@@ -84,10 +89,10 @@ export function GameCreationModal({ isOpen, onClose, gameCode }: GameCreationMod
             <span className="inline-block">
               {getPhaseIcon()}
             </span>
-            Creating Your PvP Game
+            {isJoining ? 'Joining PvP Game' : 'Creating Your PvP Game'}
           </DialogTitle>
           <DialogDescription>
-            Powering up the trading arena for your next battle...
+            {isJoining ? 'Connecting to the trading arena battle...' : 'Powering up the trading arena for your next battle...'}
           </DialogDescription>
         </DialogHeader>
         
