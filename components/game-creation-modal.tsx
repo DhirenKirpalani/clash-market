@@ -125,15 +125,13 @@ export function GameCreationModal({ isOpen, onClose, gameCode, onJoinComplete, i
           {isComplete && (
             <Button 
               onClick={() => {
+                // For join flows, onJoinComplete has already been called when progress reached 100%
+                // So we just need to close the modal here, the redirect will happen in completeJoinGame
                 onClose();
-                if (gameCode) {
-                  // Navigate to the game page
-                  window.location.href = `/pvp/${gameCode}`;
-                }
               }}
               className="w-full bg-gradient-to-r from-electric-purple to-cyber-blue hover:from-cyber-blue hover:to-electric-purple text-white font-semibold"
             >
-              Enter Arena
+              {isJoining ? 'Continue' : 'Enter Arena'}
             </Button>
           )}
         </DialogFooter>

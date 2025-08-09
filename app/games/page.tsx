@@ -4,8 +4,10 @@ import React, { useState, useEffect } from "react";
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { Clock, Lock, Trophy, Plus, Users, RefreshCw, Calendar, Trash2, X, Check, Edit, Settings } from 'lucide-react';
-import { getTournaments } from '@/lib/tournaments';
+import { supabase } from '@/lib/supabase';
 import { getActiveGames, createGame, joinGame, joinGameByCode, cancelGame, startGame, editGame } from '@/lib/games';
+import { getTournaments } from '@/lib/tournaments';
+import { createClient } from '@supabase/supabase-js';
 import { Footer } from '@/components/footer';
 import { TournamentResults } from '@/components/tournament-results';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -140,42 +142,103 @@ export default function GamesPage() {
     fetchTournaments();
   }, []);
 
-  // Fetch active games on component mount
+  // Define fetchGames function at component level to reuse it
+  const fetchGames = async () => {
+    setIsGamesLoading(true);
+    setGamesError('');
+    
+    try {
+      const gamesData = await getActiveGames(10);
+      // Transform the data to ensure it matches our Game interface
+      console.log('Games data from DB:', gamesData);
+      const formattedGames = gamesData.map(game => {
+        console.log('Game is_private type:', typeof game.is_private, 'value:', game.is_private);
+        return {
+          ...game,
+          // Ensure creator and opponent are single objects, not arrays
+          creator: Array.isArray(game.creator) ? game.creator[0] : game.creator,
+          opponent: game.opponent ? 
+            (Array.isArray(game.opponent) ? game.opponent[0] : game.opponent) : 
+            null,
+          // Ensure is_private is a boolean
+          is_private: Boolean(game.is_private)
+        };
+      });
+      console.log('Formatted games:', formattedGames);
+      setLiveGames(formattedGames as Game[]);
+    } catch (err) {
+      console.error('Error fetching games:', err);
+      setGamesError('Failed to load games. Please try again.');
+    } finally {
+      setIsGamesLoading(false);
+    }
+  };
+  
+  // Initialize Supabase client
+  const supabaseClient = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+  );
+
+  // Set up polling and real-time subscription for games table
   useEffect(() => {
-    const fetchGames = async () => {
-      setIsGamesLoading(true);
-      setGamesError('');
-      
-      try {
-        const gamesData = await getActiveGames(10);
-        // Transform the data to ensure it matches our Game interface
-        console.log('Games data from DB:', gamesData);
-        const formattedGames = gamesData.map(game => {
-          console.log('Game is_private type:', typeof game.is_private, 'value:', game.is_private);
-          return {
-            ...game,
-            // Ensure creator and opponent are single objects, not arrays
-            creator: Array.isArray(game.creator) ? game.creator[0] : game.creator,
-            opponent: game.opponent ? 
-              (Array.isArray(game.opponent) ? game.opponent[0] : game.opponent) : 
-              null,
-            // Ensure is_private is a boolean
-            is_private: Boolean(game.is_private)
-          };
-        });
-        console.log('Formatted games:', formattedGames);
-        setLiveGames(formattedGames as Game[]);
-      } catch (err) {
-        console.error('Error fetching games:', err);
-        setGamesError('Failed to load games. Please try again.');
-      } finally {
-        setIsGamesLoading(false);
-      }
-    };
     
     fetchGames();
-  }, []);
-  
+    
+    // Set up polling interval (every 15 seconds)
+    const pollingInterval = setInterval(() => {
+      console.log('Polling for game updates...');
+      fetchGames();
+    }, 15000); // 15000 milliseconds = 15 seconds
+
+    // Set up real-time subscription as backup for instant updates
+    const subscription = supabaseClient
+      .channel('games_updates')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'games' },
+        async (payload) => {
+          console.log('Real-time update received:', payload);
+          
+          // Refresh the games list whenever there's any change
+          try {
+            const gamesData = await getActiveGames(10);
+            // Transform the data to match our Game interface
+            const formattedGames = gamesData.map(game => ({
+              ...game,
+              creator: Array.isArray(game.creator) ? game.creator[0] : game.creator,
+              opponent: game.opponent ? 
+                (Array.isArray(game.opponent) ? game.opponent[0] : game.opponent) : 
+                null,
+              is_private: Boolean(game.is_private)
+            }));
+            
+            // Update state with new data
+            setLiveGames(formattedGames as Game[]);
+            
+            // Show notification for new games (created events)
+            if (payload.eventType === 'INSERT') {
+              toast({
+                title: "New Game Available",
+                description: "A new PVP game has been created and is available to join.",
+                className: "bg-electric-purple border-electric-purple",
+              });
+            }
+          } catch (err) {
+            console.error('Error updating games:', err);
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log('Supabase subscription status:', status);
+      });
+    
+    // Clean up subscription and polling interval on component unmount
+    return () => {
+      clearInterval(pollingInterval);
+      supabaseClient.removeChannel(subscription);
+    };
+  }, [toast]);
+
   // Handle creating a new PvP game
   const handleCreateGame = async () => {
     // Use the component's walletAddress state instead of reading directly from localStorage
@@ -272,21 +335,27 @@ export default function GamesPage() {
     }
     
     try {
+      console.log('Starting join game process for ID:', gameId);
       // Find the game by ID to get its code
       const gameToJoin = liveGames.find(game => game.id === gameId);
       if (!gameToJoin) {
         throw new Error("Game not found");
       }
+      
+      console.log('Game to join:', gameToJoin);
 
       // Set the game ID for joining and show the modal
       setJoiningGameId(gameId);
       
       // If the game has a game_code, use that, otherwise use the game ID
       const codeForRedirect = gameToJoin.game_code || gameToJoin.id;
+      console.log('Setting redirect code:', codeForRedirect);
       setJoinedGameCode(codeForRedirect);
       
       // Show the creation modal first, actual joining will happen after modal animation
+      console.log('Showing creation modal, join will complete after animation');
       setShowCreationModal(true);
+      // Note: completeJoinGame will be called via onJoinComplete callback when modal animation finishes
       
     } catch (err: any) {
       console.error('Error preparing to join game:', err);
@@ -300,10 +369,15 @@ export default function GamesPage() {
   
   // Function to actually join the game after the modal animation
   const completeJoinGame = async () => {
-    if (!joiningGameId || !walletAddress) return;
+    console.log('Completing join game process with ID:', joiningGameId);
+    if (!joiningGameId || !walletAddress) {
+      console.error('Missing required data for join:', { joiningGameId, walletAddress });
+      return;
+    }
     
     try {
       // Join the game and automatically set status to active
+      console.log('Calling joinGame with:', joiningGameId, walletAddress);
       await joinGame(joiningGameId, walletAddress);
       
       // Reload games list
@@ -329,7 +403,10 @@ export default function GamesPage() {
       
       // Redirect to the game page after successful join
       if (joinedGameCode) {
+        console.log('Redirecting to game page:', joinedGameCode);
         window.location.href = `/pvp/${joinedGameCode}`;
+      } else {
+        console.error('No joinedGameCode available for redirect');
       }
     } catch (err: any) {
       console.error('Error joining game:', err);
@@ -362,10 +439,20 @@ export default function GamesPage() {
     }
     
     try {
-      await joinGameByCode(joinCode, walletAddress);
+      setIsLoading(true); // Show loading state
+      
+      // Join the game by code
+      const joinedGame = await joinGameByCode(joinCode, walletAddress);
       setJoinCode('');
       
-      // Reload games list
+      // Show success toast
+      toast({
+        title: "Success",
+        description: "Game joined successfully! Redirecting to game...",
+        className: "bg-electric-purple border-electric-purple",
+      });
+      
+      // Reload games list in the background
       try {
         const gamesData = await getActiveGames(10);
         // Transform the data to match our Game interface
@@ -381,10 +468,13 @@ export default function GamesPage() {
         console.error('Error refreshing games:', refreshErr);
       }
       
-      toast({
-        title: "Success",
-        description: "Game joined successfully!"
-      });
+      // Redirect to the game page
+      setTimeout(() => {
+        // Use the game code returned from API or the entered code
+        const redirectCode = joinedGame?.game_code || joinCode;
+        window.location.href = `/pvp/${redirectCode}`;
+      }, 1000); // Short delay for toast to be visible
+      
     } catch (err: any) {
       console.error('Error joining game by code:', err);
       toast({
@@ -392,6 +482,7 @@ export default function GamesPage() {
         description: err.message || 'Failed to join game. Please try again.',
         variant: "destructive"
       });
+      setIsLoading(false);
     }
   };
   
