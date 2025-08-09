@@ -302,8 +302,8 @@ export async function editGame(gameId: string, updates: {
   return true;
 }
 
-// Get a specific game by ID
-export async function getGameById(gameId: string) {
+// Get a specific game by game code
+export async function getGameById(gameCode: string) {
   const { data, error } = await supabase
     .from('games')
     .select(`
@@ -313,6 +313,8 @@ export async function getGameById(gameId: string) {
       opponent_id,
       principal_amount,
       pot_amount,
+      token,
+      duration,
       status,
       winner_id,
       creator:creator_id (
@@ -329,10 +331,9 @@ export async function getGameById(gameId: string) {
       ),
       start_time,
       end_time,
-      game_data,
       created_at
     `)
-    .eq('id', gameId)
+    .eq('game_code', gameCode)
     .single();
     
   if (error) throw error;
