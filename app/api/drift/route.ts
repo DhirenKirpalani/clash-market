@@ -1,8 +1,5 @@
-//import 'rpc-websockets/dist/lib/client';
 import { NextRequest } from "next/server";
 import { Connection, Keypair} from "@solana/web3.js";
-import bs58 from 'bs58';  
-import { get } from "http";
 import { getUserPda, getUserData, PERPS } from "@/lib/drift";
 import { fetchPythPrices } from "@/lib/pyth";
 import { BN } from "@coral-xyz/anchor";
@@ -40,7 +37,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const connection = new Connection(process.env.PRIVATE_SOLANA_RPC_URL, "confirmed");
-    
+
     // Get User Drift Account
     const userPda = getUserPda(user, new BN(0));
 
@@ -89,6 +86,7 @@ export async function GET(req: NextRequest) {
         const fees = quoteAssetValue - quoteEntryValue;
         const positionFee = fees < 0 ? fees*-1 : fees;
         const positionPnL = baseAssetValue + quoteEntryValue;
+        const positionPnLPercent = (positionPnL / -quoteEntryValue) * 100;
 
       return {
         marketIndex: position.marketIndex,
@@ -96,6 +94,7 @@ export async function GET(req: NextRequest) {
         lastCumulativeFundingRate: position.lastCumulativeFundingRate.toNumber(),
         // Value based on token prices
         positionPnL: positionPnL,
+        positionPnLPercent: positionPnLPercent,
         positionFee: positionFee,
         baseAssetValue: baseAssetValue,
         quoteAssetValue: quoteAssetValue,

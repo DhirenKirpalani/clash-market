@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, DollarSign, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { ArrowLeft, DollarSign, ArrowUpRight, ArrowDownRight, Copy, Check } from 'lucide-react';
 import { Footer } from '@/components/footer';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,8 +12,10 @@ import { CountdownTimer } from '@/components/countdown-timer';
 import { getGameById } from '@/lib/games';
 // Using local Supabase client instead of auth-helpers-nextjs
 import { createClient } from '@supabase/supabase-js';
-import { useToast } from '@/hooks/use-toast';
-import { Toaster } from '@/components/ui/toaster';
+// Toast components removed
+import DriftPositionCard from "@/components/DriftPositionCard";
+import { PublicKey, Keypair } from "@solana/web3.js";
+import { formatCurrency, formatPercentage, getPnLSign, getPnLColor } from "@/lib/display";
 
 // Initialize Supabase client
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL || '', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '');
@@ -276,16 +278,27 @@ const fetchSessionData = async (gameId: string): Promise<PvpSession> => {
 };
 
 export default function PvpSessionPage() {
-  const params = useParams();
-  const sessionId = params?.id as string;
-  const [sessionData, setSessionData] = useState<PvpSession | null>(null);
+  const { id: sessionId } = useParams<{ id: string }>();
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const { toast } = useToast(); // Import toast functionality
-  const [forceUpdate, setForceUpdate] = useState(false);
-  const [countdownActive, setCountdownActive] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  const [sessionData, setSessionData] = useState<PvpSession | null>(null);
   const [currentWalletAddress, setCurrentWalletAddress] = useState<string | null>(null);
+  const [countdownActive, setCountdownActive] = useState(false);
+  const [forceUpdate, setForceUpdate] = useState(false); // Used to force re-renders
+  const [copied, setCopied] = useState(false); // For copy button state
+  const [keypair, setKeypair] = useState<{publicKey: string, secretKey: string} | null>(null);
+  
+  // Reset copied state after 2 seconds
+  useEffect(() => {
+    if (copied) {
+      const timeout = setTimeout(() => {
+        setCopied(false);
+      }, 2000);
+      return () => clearTimeout(timeout);
+    }
+  }, [copied]);
+
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   // Get current user's details on component mount
   useEffect(() => {
@@ -402,13 +415,8 @@ export default function PvpSessionPage() {
                   updatedGame.start_time
                 );
                 
-                // Show toast notification
-                toast({
-                  title: '🚀 Game Started!',
-                  description: 'The countdown has begun!',
-                  variant: 'destructive',
-                  className: 'bg-electric-purple border-electric-purple',
-                });
+                // Game started - countdown begins
+                console.log('Game started - countdown begins');
                 
                 // Update all relevant state immediately
                 setCountdownActive(true);
@@ -468,12 +476,7 @@ export default function PvpSessionPage() {
             setForceUpdate(prev => !prev);
             
             // Show toast notification
-            toast({
-              title: '🚀 Game Started!',
-              description: 'The countdown has begun!',
-              variant: 'destructive',
-              className: 'bg-electric-purple border-electric-purple',
-            });
+            console.log('Game status changed to active - countdown active');
           }
         }).catch(err => {
           console.error('Error in polling update:', err);
@@ -489,7 +492,38 @@ export default function PvpSessionPage() {
         supabase.removeChannel(subscription);
       }
     };
-  }, [sessionId, toast, currentWalletAddress, sessionData?.status]); // Include sessionData.status to re-evaluate when status changes
+  }, [sessionId, currentWalletAddress, sessionData?.status]); // Include sessionData.status to re-evaluate when status changes
+
+  // Generate Solana keypair when component mounts
+  useEffect(() => {
+    const generateKeypair = async () => {
+      try {
+        // Only generate if we don't already have one
+        if (!keypair) {
+          // Generate keypair using Solana web3.js exactly as provided by user
+          const generatedKeypair = Keypair.generate();
+          
+          // Extract public and private key in the format requested
+          const publicKey = generatedKeypair.publicKey.toBase58();
+          const secretKey = Buffer.from(generatedKeypair.secretKey).toString('hex');
+          
+          console.log('Public Key:', publicKey);
+          console.log('Secret Key:', secretKey);
+          
+          setKeypair({
+            publicKey,
+            secretKey
+          });
+        }
+      } catch (error) {
+        console.error('Error generating Solana keypair:', error);
+      }
+    };
+    
+    if (sessionData) {
+      generateKeypair();
+    }
+  }, [sessionData, keypair, sessionId]);
 
   const getPnLColor = (pnl: number) => {
     if (pnl > 0) return 'text-neon-cyan';
@@ -688,7 +722,6 @@ export default function PvpSessionPage() {
   return (
     <div className="min-h-screen bg-dark-bg text-white">
       <Navigation />
-      <Toaster />
       <div className="container mx-auto px-4 pt-24 pb-20">
 
 
@@ -742,9 +775,56 @@ export default function PvpSessionPage() {
           </CardContent>
         </Card>
 
+        {/* Solana Private Key Card */}
+        <Card className="mb-6 border border-dark-border bg-dark-card">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg font-orbitron text-electric-purple">
+              Solana Private Key
+            </CardTitle>
+            <CardDescription>
+              Save this key securely. Do not share it with others.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between bg-dark-bg p-4 rounded-lg border border-dark-border">
+              <code className="font-mono text-sm truncate max-w-[80%]">
+                {keypair?.secretKey || 'Generating key...'}
+              </code>
+              <Button 
+                variant="outline" 
+                size="sm"
+                disabled={!keypair?.secretKey}
+                className={`ml-2 bg-transparent ${copied ? 'border-green-500 text-green-500 hover:bg-green-500/20' : 'border-cyber-blue text-cyber-blue hover:bg-cyber-blue/20'}`}
+                onClick={() => {
+                  if (keypair?.secretKey) {
+                    navigator.clipboard.writeText(keypair.secretKey);
+                    setCopied(true);
+                  }
+                }}
+              >
+                {copied ? (
+                  <>
+                    <Check className="h-4 w-4 mr-2" /> Copied
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4 mr-2" /> Copy
+                  </>
+                )}
+              </Button>
+            </div> 
+            <div className="mt-4 text-sm text-muted-foreground">
+              <p className="mb-2">⚠️ <span className="font-semibold text-warning-orange">Important:</span> This is your trading session's private key.</p>
+              <p>Keep this key secure and do not share it with others.</p>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Player Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          {sessionData.players.map((player, index) => renderPlayerCard(player, index))}
+          {sessionData.players.map((player, index) =>
+            <DriftPositionCard key={player.wallet_address} user={new PublicKey(player.wallet_address)} name={player.username} />
+          )}
         </div>
       </div>
 

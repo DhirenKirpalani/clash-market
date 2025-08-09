@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Clock, Lock, Trophy, Plus, Users, RefreshCw, Calendar, Trash2, X, Check, Edit, Settings } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getActiveGames, createGame, joinGame, joinGameByCode, cancelGame, startGame, editGame } from '@/lib/games';
@@ -73,6 +74,7 @@ const leaderboardData = [
 ];
 
 export default function GamesPage() {
+  const router = useRouter();
   const [isPrivate, setIsPrivate] = useState(false);
   const [joinCode, setJoinCode] = useState('');
   const [selectedToken, setSelectedToken] = useState('USDC');
@@ -352,10 +354,10 @@ export default function GamesPage() {
       console.log('Setting redirect code:', codeForRedirect);
       setJoinedGameCode(codeForRedirect);
       
-      // Show the creation modal first, actual joining will happen after modal animation
-      console.log('Showing creation modal, join will complete after animation');
+      // Show the creation modal
+      // The actual join will happen when the user clicks the "Enter Arena" button
+      console.log('Showing creation modal, join will complete when button is clicked');
       setShowCreationModal(true);
-      // Note: completeJoinGame will be called via onJoinComplete callback when modal animation finishes
       
     } catch (err: any) {
       console.error('Error preparing to join game:', err);
@@ -367,20 +369,20 @@ export default function GamesPage() {
     }
   };
   
-  // Function to actually join the game after the modal animation
+  // Function to actually join the game when the Enter Arena button is clicked
   const completeJoinGame = async () => {
     console.log('Completing join game process with ID:', joiningGameId);
-    if (!joiningGameId || !walletAddress) {
+    if ((!joiningGameId || joiningGameId === 'byCode') || !walletAddress) {
       console.error('Missing required data for join:', { joiningGameId, walletAddress });
       return;
     }
     
     try {
-      // Join the game and automatically set status to active
+      // Join the game and set status to active
       console.log('Calling joinGame with:', joiningGameId, walletAddress);
       await joinGame(joiningGameId, walletAddress);
       
-      // Reload games list
+      // Reload games list in the background
       try {
         const gamesData = await getActiveGames(10);
         // Transform the data to match our Game interface
@@ -396,18 +398,9 @@ export default function GamesPage() {
         console.error('Error refreshing games:', refreshErr);
       }
       
-      toast({
-        title: "Success", 
-        description: "Game joined successfully! Status is now active."
-      });
+      // No success toast here - we're already showing the success in the modal
+      // and redirecting through the button click
       
-      // Redirect to the game page after successful join
-      if (joinedGameCode) {
-        console.log('Redirecting to game page:', joinedGameCode);
-        window.location.href = `/pvp/${joinedGameCode}`;
-      } else {
-        console.error('No joinedGameCode available for redirect');
-      }
     } catch (err: any) {
       console.error('Error joining game:', err);
       toast({
@@ -445,12 +438,13 @@ export default function GamesPage() {
       const joinedGame = await joinGameByCode(joinCode, walletAddress);
       setJoinCode('');
       
-      // Show success toast
-      toast({
-        title: "Success",
-        description: "Game joined successfully! Redirecting to game...",
-        className: "bg-electric-purple border-electric-purple",
-      });
+      // Set the joined game code for redirection later
+      const redirectCode = joinedGame?.game_code || joinCode;
+      setJoinedGameCode(redirectCode);
+      
+      // Show the creation modal with joining=true
+      setJoiningGameId('byCode'); // Just a marker to indicate this is a code join
+      setShowCreationModal(true);
       
       // Reload games list in the background
       try {
@@ -468,13 +462,7 @@ export default function GamesPage() {
         console.error('Error refreshing games:', refreshErr);
       }
       
-      // Redirect to the game page
-      setTimeout(() => {
-        // Use the game code returned from API or the entered code
-        const redirectCode = joinedGame?.game_code || joinCode;
-        window.location.href = `/pvp/${redirectCode}`;
-      }, 1000); // Short delay for toast to be visible
-      
+      setIsLoading(false);
     } catch (err: any) {
       console.error('Error joining game by code:', err);
       toast({
@@ -1171,6 +1159,20 @@ export default function GamesPage() {
                                     )}
                                   </div>
                                 )}
+                                {game.status === 'active' && (
+                                  <div className="flex items-center justify-end space-x-2">
+                                    {(isCreator || isOpponent) && (
+                                      <Button 
+                                        size="sm" 
+                                        variant="outline" 
+                                        className="h-7 bg-transparent border-green-500 text-green-500 hover:bg-green-500/20"
+                                        onClick={() => router.push(`/pvp/${game.game_code}`)}
+                                      >
+                                        Enter Arena
+                                      </Button>
+                                    )}
+                                  </div>
+                                )}
                               </td>
                             </tr>
                           );
@@ -1379,7 +1381,8 @@ export default function GamesPage() {
         onClose={() => setShowCreationModal(false)}
         gameCode={joiningGameId ? joinedGameCode : createdGameCode}
         isJoining={!!joiningGameId}
-        onJoinComplete={joiningGameId ? completeJoinGame : undefined}
+        joiningId={joiningGameId}
+        onJoinComplete={completeJoinGame} // Will be called when button is clicked, not automatically
       />
 
       {/* Toast container */}

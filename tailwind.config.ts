@@ -1,5 +1,8 @@
 import type { Config } from "tailwindcss";
 
+// Add declaration for Node.js require function
+declare function require(path: string): any;
+
 export default {
   darkMode: ["class"],
   content: [
@@ -98,8 +101,9 @@ export default {
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "spin-slow": "spin 3s linear infinite",
       },
     },
   },
-  plugins: [require("tailwindcss-animate"), require("@tailwindcss/typography")],
+  plugins: [require("tailwindcss-animate"), require("@tailwindcss/typography")] as const,
 } satisfies Config;
